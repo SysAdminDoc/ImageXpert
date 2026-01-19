@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImageXpert — Reverse Search & Download Toolkit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --accent: #00ff88;
+            --accent-dim: #00cc6e;
+            --accent-glow: rgba(0, 255, 136, 0.15);
+            --text-primary: #ffffff;
+            --text-secondary: #8888aa;
+            --text-dim: #555566;
+            --border: #2a2a3a;
+            --danger: #ff4466;
+            --warning: #ffaa00;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 136, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 136, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 0 30px var(--accent-glow);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .tagline {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-top: 8px;
+        }
+
+        /* Main sections */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+
+        .card-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, var(--border), transparent);
+        }
+
+        /* Input section */
+        .input-group {
+            margin-bottom: 16px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .url-input {
+            width: 100%;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            transition: all 0.2s;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .url-input::placeholder {
+            color: var(--text-dim);
+        }
+
+        /* Drop zone */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: var(--bg-primary);
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+        }
+
+        .drop-zone-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .drop-zone-text {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .drop-zone-text strong {
+            color: var(--accent);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        /* Preview */
+        .preview-container {
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-primary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .preview-placeholder {
+            text-align: center;
+            color: var(--text-dim);
+        }
+
+        .preview-placeholder-icon {
+            font-size: 64px;
+            opacity: 0.3;
+            margin-bottom: 16px;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            display: none;
+        }
+
+        .preview-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 12px 16px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            display: none;
+        }
+
+        /* Action buttons */
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .action-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .action-btn:hover {
+            border-color: var(--accent);
+            background: var(--bg-secondary);
+            transform: translateY(-2px);
+        }
+
+        .action-btn.primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+            border-color: var(--accent);
+        }
+
+        .action-btn.primary:hover {
+            background: var(--accent-dim);
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .action-btn.google { border-color: #4285f4; }
+        .action-btn.google:hover { background: #4285f4; color: #fff; }
+        .action-btn.yandex { border-color: #fc3f1d; }
+        .action-btn.yandex:hover { background: #fc3f1d; color: #fff; }
+        .action-btn.bing { border-color: #00809d; }
+        .action-btn.bing:hover { background: #00809d; color: #fff; }
+        .action-btn.tineye { border-color: #0096cc; }
+        .action-btn.tineye:hover { background: #0096cc; color: #fff; }
+
+        /* Search engines section */
+        .engines-section {
+            margin-top: 40px;
+        }
+
+        .engines-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .engine-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .engine-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .engine-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .engine-icon.google { background: linear-gradient(135deg, #4285f4, #34a853); }
+        .engine-icon.yandex { background: linear-gradient(135deg, #fc3f1d, #ff6633); }
+        .engine-icon.bing { background: linear-gradient(135deg, #00809d, #00b4cc); }
+        .engine-icon.tineye { background: linear-gradient(135deg, #0096cc, #00c4ff); }
+        .engine-icon.baidu { background: linear-gradient(135deg, #2932e1, #4c56f0); }
+        .engine-icon.saucenao { background: linear-gradient(135deg, #ff6600, #ff9933); }
+
+        .engine-info h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .engine-info p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Gallery section */
+        .gallery-section {
+            margin-top: 40px;
+        }
+
+        .gallery-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .gallery-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .gallery-count {
+            background: var(--bg-tertiary);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .gallery-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+        }
+
+        .gallery-item {
+            aspect-ratio: 1;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .gallery-item:hover {
+            border-color: var(--accent);
+            transform: scale(1.02);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .gallery-item-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .gallery-item:hover .gallery-item-overlay {
+            opacity: 1;
+        }
+
+        .gallery-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-dim);
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            transform: translateX(120%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast-icon {
+            font-size: 20px;
+        }
+
+        .toast-message {
+            font-size: 0.9rem;
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 80px;
+            padding: 30px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .footer-text {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+        }
+
+        .footer-text a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        /* Utilities */
+        .small-btn {
+            padding: 8px 12px;
+            font-size: 0.75rem;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-dim);
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">🔍</div>
+                <h1>ImageXpert</h1>
+            </div>
+            <p class="tagline">Reverse Image Search & Download Toolkit</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- Input Section -->
+            <div class="card">
+                <div class="card-title">
+                    <span>📥</span> Input Image
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Image URL</label>
+                    <input type="text" class="url-input" id="imageUrl" placeholder="https://example.com/image.jpg">
+                </div>
+                
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-zone-icon">📁</div>
+                    <div class="drop-zone-text">
+                        <strong>Click to upload</strong> or drag & drop<br>
+                        PNG, JPG, GIF, WebP
+                    </div>
+                    <input type="file" class="file-input" id="fileInput" accept="image/*">
+                </div>
+                
+                <div class="actions-grid" style="margin-top: 20px;">
+                    <button class="action-btn primary" id="loadBtn">
+                        <span>⚡</span> Load Image
+                    </button>
+                    <button class="action-btn" id="pasteBtn">
+                        <span>📋</span> Paste
+                    </button>
+                    <button class="action-btn" id="clearBtn">
+                        <span>🗑️</span> Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- Preview Section -->
+            <div class="card">
+                <div class="card-title">
+                    <span>🖼️</span> Preview
+                </div>
+                
+                <div class="preview-container" id="previewContainer">
+                    <div class="preview-placeholder" id="placeholder">
+                        <div class="preview-placeholder-icon">🖼️</div>
+                        <p>No image loaded</p>
+                    </div>
+                    <img class="preview-image" id="previewImage" alt="Preview">
+                    <div class="preview-info" id="previewInfo"></div>
+                </div>
+                
+                <div class="actions-grid">
+                    <button class="action-btn primary" id="downloadBtn" disabled>
+                        <span>⬇️</span> Download
+                    </button>
+                    <button class="action-btn" id="copyUrlBtn" disabled>
+                        <span>🔗</span> Copy URL
+                    </button>
+                    <button class="action-btn" id="addToGalleryBtn" disabled>
+                        <span>➕</span> Save
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reverse Search Engines -->
+        <div class="engines-section">
+            <div class="card">
+                <div class="card-title">
+                    <span>🔎</span> Reverse Image Search
+                </div>
+                
+                <div class="engines-grid" id="enginesGrid">
+                    <div class="engine-card" data-engine="google">
+                        <div class="engine-icon google">G</div>
+                        <div class="engine-info">
+                            <h3>Google Lens</h3>
+                            <p>Best for general image recognition</p>
+                        </div>
+                    </div>
+                    <div class="engine-card" data-engine="yandex">
+                        <div class="engine-icon yandex">Y</div>
+                        <div class="engine-info">
+                            <h3>Yandex Images</h3>
+                            <p>Great for finding higher resolutions</p>
+                        </div>
+                    </div>
+                    <div class="engine-card" data-engine="bing">
+                        <div class="engine-icon bing">B</div>
+                        <div class="engine-info">
+                            <h3>Bing Visual Search</h3>
+                            <p>Good for product searches</p>
+                        </div>
+                    </div>
+                    <div class="engine-card" data-engine="tineye">
+                        <div class="engine-icon tineye">T</div>
+                        <div class="engine-info">
+                            <h3>TinEye</h3>
+                            <p>Find where images appear online</p>
+                        </div>
+                    </div>
+                    <div class="engine-card" data-engine="saucenao">
+                        <div class="engine-icon saucenao">S</div>
+                        <div class="engine-info">
+                            <h3>SauceNAO</h3>
+                            <p>Best for anime & artwork sources</p>
+                        </div>
+                    </div>
+                    <div class="engine-card" data-engine="all">
+                        <div class="engine-icon" style="background: linear-gradient(135deg, var(--accent), var(--accent-dim));">🌐</div>
+                        <div class="engine-info">
+                            <h3>Open All</h3>
+                            <p>Search all engines at once</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gallery -->
+        <div class="gallery-section">
+            <div class="gallery-header">
+                <div class="gallery-title">
+                    <span>📂</span> Saved Images
+                    <span class="gallery-count" id="galleryCount">0 items</span>
+                </div>
+                <div class="gallery-actions">
+                    <button class="action-btn small-btn" id="exportGalleryBtn">
+                        <span>📤</span> Export
+                    </button>
+                    <button class="action-btn small-btn" id="clearGalleryBtn">
+                        <span>🗑️</span> Clear All
+                    </button>
+                </div>
+            </div>
+            <div class="gallery-grid" id="galleryGrid">
+                <div class="gallery-empty" id="galleryEmpty">
+                    <div style="font-size: 48px; margin-bottom: 12px; opacity: 0.3;">📭</div>
+                    <p>No saved images yet</p>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p class="footer-text">
+                ImageXpert — Open source reverse image search toolkit<br>
+                Built for power users. No tracking, no ads, no BS.
+            </p>
+        </footer>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <span class="toast-icon" id="toastIcon">✓</span>
+        <span class="toast-message" id="toastMessage">Success!</span>
+    </div>
+
+    <script>
+        // State
+        let currentImageUrl = '';
+        let currentImageData = null;
+        let gallery = JSON.parse(localStorage.getItem('imagexpert_gallery') || '[]');
+
+        // DOM Elements
+        const imageUrlInput = document.getElementById('imageUrl');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const previewImage = document.getElementById('previewImage');
+        const placeholder = document.getElementById('placeholder');
+        const previewInfo = document.getElementById('previewInfo');
+        const loadBtn = document.getElementById('loadBtn');
+        const pasteBtn = document.getElementById('pasteBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const copyUrlBtn = document.getElementById('copyUrlBtn');
+        const addToGalleryBtn = document.getElementById('addToGalleryBtn');
+        const enginesGrid = document.getElementById('enginesGrid');
+        const galleryGrid = document.getElementById('galleryGrid');
+        const galleryCount = document.getElementById('galleryCount');
+        const galleryEmpty = document.getElementById('galleryEmpty');
+
+        // Toast
+        function showToast(message, icon = '✓') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+            
+            toastMessage.textContent = message;
+            toastIcon.textContent = icon;
+            toast.classList.add('show');
+            
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Load image from URL
+        function loadImageFromUrl(url) {
+            if (!url) {
+                showToast('Please enter an image URL', '⚠️');
+                return;
+            }
+
+            previewImage.style.display = 'none';
+            placeholder.innerHTML = '<div class="loading" style="font-size: 24px;">⏳</div><p>Loading...</p>';
+            placeholder.style.display = 'block';
+
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            img.onload = () => {
+                currentImageUrl = url;
+                currentImageData = null;
+                previewImage.src = url;
+                previewImage.style.display = 'block';
+                placeholder.style.display = 'none';
+                previewInfo.textContent = `${img.naturalWidth} × ${img.naturalHeight}`;
+                previewInfo.style.display = 'block';
+                enableButtons();
+                showToast('Image loaded successfully');
+            };
+            
+            img.onerror = () => {
+                // Try loading anyway (might be CORS issue but still works)
+                currentImageUrl = url;
+                currentImageData = null;
+                previewImage.src = url;
+                previewImage.style.display = 'block';
+                placeholder.style.display = 'none';
+                previewInfo.textContent = 'Dimensions unknown';
+                previewInfo.style.display = 'block';
+                enableButtons();
+                showToast('Image loaded (may have CORS restrictions)', '⚠️');
+            };
+
+            img.src = url;
+        }
+
+        // Load image from file
+        function loadImageFromFile(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                showToast('Please select a valid image file', '⚠️');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentImageData = e.target.result;
+                currentImageUrl = '';
+                previewImage.src = currentImageData;
+                previewImage.style.display = 'block';
+                placeholder.style.display = 'none';
+                
+                const img = new Image();
+                img.onload = () => {
+                    previewInfo.textContent = `${img.naturalWidth} × ${img.naturalHeight} • ${formatBytes(file.size)}`;
+                    previewInfo.style.display = 'block';
+                };
+                img.src = currentImageData;
+                
+                enableButtons();
+                showToast('Image loaded from file');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function enableButtons() {
+            downloadBtn.disabled = false;
+            copyUrlBtn.disabled = false;
+            addToGalleryBtn.disabled = false;
+        }
+
+        function disableButtons() {
+            downloadBtn.disabled = true;
+            copyUrlBtn.disabled = true;
+            addToGalleryBtn.disabled = true;
+        }
+
+        function clearImage() {
+            currentImageUrl = '';
+            currentImageData = null;
+            imageUrlInput.value = '';
+            previewImage.src = '';
+            previewImage.style.display = 'none';
+            placeholder.innerHTML = '<div class="preview-placeholder-icon">🖼️</div><p>No image loaded</p>';
+            placeholder.style.display = 'block';
+            previewInfo.style.display = 'none';
+            disableButtons();
+            showToast('Cleared');
+        }
+
+        // Search engines
+        function getSearchUrl(engine, imageUrl) {
+            const encodedUrl = encodeURIComponent(imageUrl);
+            
+            const engines = {
+                google: `https://lens.google.com/uploadbyurl?url=${encodedUrl}`,
+                yandex: `https://yandex.com/images/search?rpt=imageview&url=${encodedUrl}`,
+                bing: `https://www.bing.com/images/search?view=detailv2&iss=sbi&form=SBIVSP&sbisrc=UrlPaste&q=imgurl:${encodedUrl}`,
+                tineye: `https://tineye.com/search?url=${encodedUrl}`,
+                saucenao: `https://saucenao.com/search.php?url=${encodedUrl}`
+            };
+            
+            return engines[engine];
+        }
+
+        function searchImage(engine) {
+            const url = currentImageUrl || currentImageData;
+            
+            if (!url) {
+                showToast('Please load an image first', '⚠️');
+                return;
+            }
+
+            if (currentImageData && !currentImageUrl) {
+                // For local files, we need to open manual upload pages
+                const manualUrls = {
+                    google: 'https://lens.google.com/',
+                    yandex: 'https://yandex.com/images/',
+                    bing: 'https://www.bing.com/images/search?q=&form=HDRSC3',
+                    tineye: 'https://tineye.com/',
+                    saucenao: 'https://saucenao.com/'
+                };
+                
+                if (engine === 'all') {
+                    Object.values(manualUrls).forEach(u => window.open(u, '_blank'));
+                    showToast('Opened all engines - upload your image manually', 'ℹ️');
+                } else {
+                    window.open(manualUrls[engine], '_blank');
+                    showToast('Upload your image manually on the opened page', 'ℹ️');
+                }
+                return;
+            }
+
+            if (engine === 'all') {
+                ['google', 'yandex', 'bing', 'tineye', 'saucenao'].forEach(eng => {
+                    window.open(getSearchUrl(eng, currentImageUrl), '_blank');
+                });
+                showToast('Opened all search engines');
+            } else {
+                window.open(getSearchUrl(engine, currentImageUrl), '_blank');
+                showToast(`Searching on ${engine.charAt(0).toUpperCase() + engine.slice(1)}`);
+            }
+        }
+
+        // Download
+        function downloadImage() {
+            const url = currentImageUrl || currentImageData;
+            if (!url) return;
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `image_${Date.now()}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Download started');
+        }
+
+        // Copy URL
+        function copyUrl() {
+            const url = currentImageUrl || currentImageData;
+            if (!url) return;
+
+            navigator.clipboard.writeText(url).then(() => {
+                showToast('URL copied to clipboard');
+            }).catch(() => {
+                showToast('Failed to copy URL', '⚠️');
+            });
+        }
+
+        // Gallery
+        function saveGallery() {
+            localStorage.setItem('imagexpert_gallery', JSON.stringify(gallery));
+            renderGallery();
+        }
+
+        function addToGallery() {
+            const url = currentImageUrl || currentImageData;
+            if (!url) return;
+
+            if (gallery.some(item => item.url === url)) {
+                showToast('Image already in gallery', 'ℹ️');
+                return;
+            }
+
+            gallery.push({
+                url: url,
+                thumb: url,
+                added: Date.now()
+            });
+
+            saveGallery();
+            showToast('Added to gallery');
+        }
+
+        function removeFromGallery(index) {
+            gallery.splice(index, 1);
+            saveGallery();
+            showToast('Removed from gallery');
+        }
+
+        function renderGallery() {
+            galleryCount.textContent = `${gallery.length} items`;
+            
+            if (gallery.length === 0) {
+                galleryEmpty.style.display = 'block';
+                return;
+            }
+
+            galleryEmpty.style.display = 'none';
+            
+            // Remove existing items (but keep empty placeholder)
+            document.querySelectorAll('.gallery-item').forEach(el => el.remove());
+
+            gallery.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'gallery-item';
+                div.innerHTML = `
+                    <img src="${item.url}" alt="Gallery item" loading="lazy">
+                    <div class="gallery-item-overlay">
+                        <button class="action-btn small-btn" onclick="loadFromGallery(${index})">
+                            <span>🔍</span> Load
+                        </button>
+                        <button class="action-btn small-btn" onclick="removeFromGallery(${index})">
+                            <span>🗑️</span> Remove
+                        </button>
+                    </div>
+                `;
+                galleryGrid.appendChild(div);
+            });
+        }
+
+        function loadFromGallery(index) {
+            const item = gallery[index];
+            if (item.url.startsWith('data:')) {
+                currentImageData = item.url;
+                currentImageUrl = '';
+                previewImage.src = item.url;
+            } else {
+                currentImageUrl = item.url;
+                currentImageData = null;
+                imageUrlInput.value = item.url;
+                previewImage.src = item.url;
+            }
+            previewImage.style.display = 'block';
+            placeholder.style.display = 'none';
+            previewInfo.style.display = 'block';
+            enableButtons();
+            showToast('Loaded from gallery');
+        }
+
+        function exportGallery() {
+            if (gallery.length === 0) {
+                showToast('Gallery is empty', '⚠️');
+                return;
+            }
+
+            const data = gallery.map(item => item.url).join('\n');
+            const blob = new Blob([data], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `imagexpert_gallery_${Date.now()}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast('Gallery exported');
+        }
+
+        function clearGallery() {
+            if (!confirm('Clear all saved images?')) return;
+            gallery = [];
+            saveGallery();
+            showToast('Gallery cleared');
+        }
+
+        // Event Listeners
+        loadBtn.addEventListener('click', () => loadImageFromUrl(imageUrlInput.value.trim()));
+        
+        imageUrlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadImageFromUrl(imageUrlInput.value.trim());
+        });
+
+        pasteBtn.addEventListener('click', async () => {
+            try {
+                const items = await navigator.clipboard.read();
+                for (const item of items) {
+                    if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
+                        const blob = await item.getType(item.types.find(t => t.startsWith('image/')));
+                        const file = new File([blob], 'pasted-image.png', { type: blob.type });
+                        loadImageFromFile(file);
+                        return;
+                    }
+                    if (item.types.includes('text/plain')) {
+                        const blob = await item.getType('text/plain');
+                        const text = await blob.text();
+                        if (text.match(/^https?:\/\/.+/i)) {
+                            imageUrlInput.value = text;
+                            loadImageFromUrl(text);
+                            return;
+                        }
+                    }
+                }
+                showToast('No image or URL in clipboard', '⚠️');
+            } catch (err) {
+                // Fallback for browsers that don't support clipboard API
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if (text.match(/^https?:\/\/.+/i)) {
+                        imageUrlInput.value = text;
+                        loadImageFromUrl(text);
+                    } else {
+                        showToast('No valid URL in clipboard', '⚠️');
+                    }
+                } catch (e) {
+                    showToast('Clipboard access denied', '⚠️');
+                }
+            }
+        });
+
+        clearBtn.addEventListener('click', clearImage);
+        downloadBtn.addEventListener('click', downloadImage);
+        copyUrlBtn.addEventListener('click', copyUrl);
+        addToGalleryBtn.addEventListener('click', addToGallery);
+
+        // Drop zone
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                loadImageFromFile(e.target.files[0]);
+            }
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                loadImageFromFile(file);
+            } else {
+                // Check for dropped URL
+                const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+                if (url && url.match(/^https?:\/\/.+/i)) {
+                    imageUrlInput.value = url;
+                    loadImageFromUrl(url);
+                }
+            }
+        });
+
+        // Search engines
+        enginesGrid.addEventListener('click', (e) => {
+            const card = e.target.closest('.engine-card');
+            if (card) {
+                const engine = card.dataset.engine;
+                searchImage(engine);
+            }
+        });
+
+        // Gallery buttons
+        document.getElementById('exportGalleryBtn').addEventListener('click', exportGallery);
+        document.getElementById('clearGalleryBtn').addEventListener('click', clearGallery);
+
+        // Global paste
+        document.addEventListener('paste', (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    loadImageFromFile(file);
+                    return;
+                }
+            }
+        });
+
+        // Initialize
+        renderGallery();
+
+        // Make functions globally available for inline handlers
+        window.loadFromGallery = loadFromGallery;
+        window.removeFromGallery = removeFromGallery;
+    </script>
+</body>
+</html>
