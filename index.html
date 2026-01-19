@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReverseSearch — Drop Image, Get Results</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg: #0d0d0d;
+            --surface: #1a1a1a;
+            --border: #2a2a2a;
+            --accent: #00ff88;
+            --accent-hover: #00cc6a;
+            --text: #ffffff;
+            --text-dim: #888;
+            --google: #4285f4;
+            --yandex: #ff0000;
+            --bing: #00809d;
+            --tineye: #0096cc;
+            --saucenao: #ff6600;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--accent);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .logo h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .logo h1 span { color: var(--accent); }
+
+        .header-actions { display: flex; gap: 10px; }
+
+        .header-btn {
+            padding: 10px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .header-btn:hover { border-color: var(--accent); background: #222; }
+
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 30px;
+            max-width: 1000px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .engines-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .engine-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--surface);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .engine-toggle:hover { background: #222; }
+        .engine-toggle.active { border-color: var(--accent); background: rgba(0, 255, 136, 0.1); }
+        .engine-toggle.active .engine-dot { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+        .engine-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border);
+            transition: all 0.2s;
+        }
+
+        .engine-toggle[data-engine="google"] .engine-dot { background: var(--google); }
+        .engine-toggle[data-engine="yandex"] .engine-dot { background: var(--yandex); }
+        .engine-toggle[data-engine="bing"] .engine-dot { background: var(--bing); }
+        .engine-toggle[data-engine="tineye"] .engine-dot { background: var(--tineye); }
+        .engine-toggle[data-engine="saucenao"] .engine-dot { background: var(--saucenao); }
+
+        .engine-toggle.active[data-engine="google"] { border-color: var(--google); background: rgba(66, 133, 244, 0.1); }
+        .engine-toggle.active[data-engine="yandex"] { border-color: var(--yandex); background: rgba(255, 0, 0, 0.1); }
+        .engine-toggle.active[data-engine="bing"] { border-color: var(--bing); background: rgba(0, 128, 157, 0.1); }
+        .engine-toggle.active[data-engine="tineye"] { border-color: var(--tineye); background: rgba(0, 150, 204, 0.1); }
+        .engine-toggle.active[data-engine="saucenao"] { border-color: var(--saucenao); background: rgba(255, 102, 0, 0.1); }
+
+        .engine-name { font-weight: 600; font-size: 0.9rem; }
+
+        .drop-zone {
+            flex: 1;
+            min-height: 400px;
+            border: 3px dashed var(--border);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+            background: var(--surface);
+        }
+
+        .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(0, 255, 136, 0.05); }
+        .drop-zone.dragover { transform: scale(1.01); }
+        .drop-zone.has-image { border-style: solid; border-color: var(--accent); }
+
+        .drop-content { text-align: center; padding: 40px; }
+        .drop-icon { font-size: 80px; margin-bottom: 20px; opacity: 0.6; }
+        .drop-title { font-size: 1.8rem; font-weight: 700; margin-bottom: 12px; }
+        .drop-subtitle { color: var(--text-dim); font-size: 1rem; margin-bottom: 30px; line-height: 1.6; }
+
+        .drop-methods { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+
+        .drop-method {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: var(--bg);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        .drop-method strong { color: var(--text); }
+
+        .preview-container { position: absolute; inset: 0; display: none; flex-direction: column; }
+        .drop-zone.has-image .drop-content { display: none; }
+        .drop-zone.has-image .preview-container { display: flex; }
+
+        .preview-image-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .preview-image { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+
+        .preview-actions {
+            padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .preview-info { font-size: 0.85rem; color: var(--text-dim); }
+        .preview-info strong { color: var(--accent); }
+        .preview-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .action-btn {
+            padding: 10px 18px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-btn:hover { border-color: var(--accent); background: #222; }
+        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .action-btn.primary { background: var(--accent); border-color: var(--accent); color: #000; }
+        .action-btn.primary:hover { background: var(--accent-hover); }
+        .action-btn.danger { border-color: #ff4466; color: #ff4466; }
+        .action-btn.danger:hover { background: #ff4466; color: #fff; }
+
+        .url-bar { margin-top: 20px; display: flex; gap: 10px; }
+
+        .url-input {
+            flex: 1;
+            padding: 14px 18px;
+            background: var(--surface);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .url-input:focus { border-color: var(--accent); }
+        .url-input::placeholder { color: var(--text-dim); }
+
+        .url-btn {
+            padding: 14px 24px;
+            background: var(--accent);
+            border: none;
+            border-radius: 10px;
+            color: #000;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .url-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 16px 30px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .status-bar.show { display: flex; }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .status-text { font-weight: 500; }
+
+        .progress-bar { width: 200px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            background: var(--surface);
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(150%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .toast.show { transform: translateX(0); }
+        .toast.error { border-color: #ff4466; }
+
+        .panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 380px;
+            height: 100vh;
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel.open { transform: translateX(0); }
+
+        .panel-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-header h2 { font-size: 1.1rem; font-weight: 700; }
+
+        .panel-close {
+            width: 32px;
+            height: 32px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .panel-close:hover { border-color: var(--accent); }
+        .panel-content { flex: 1; overflow-y: auto; }
+
+        .settings-section { padding: 15px 20px; border-bottom: 1px solid var(--border); }
+
+        .settings-section-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+        .settings-label { font-weight: 500; }
+        .settings-desc { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; }
+
+        .toggle-switch {
+            width: 50px;
+            height: 26px;
+            background: var(--border);
+            border-radius: 13px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch.on { background: var(--accent); }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .toggle-switch.on::after { left: 27px; }
+
+        .history-list { padding: 10px; }
+
+        .history-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item:hover { background: #1a1a1a; }
+
+        .history-thumb {
+            width: 60px;
+            height: 60px;
+            border-radius: 6px;
+            object-fit: cover;
+            background: var(--border);
+            flex-shrink: 0;
+        }
+
+        .history-info { flex: 1; min-width: 0; }
+        .history-time { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px; }
+        .history-engines { font-size: 0.8rem; color: var(--text-dim); }
+        .history-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+        .history-btn {
+            padding: 6px 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .history-btn:hover { border-color: var(--accent); }
+        .history-empty { text-align: center; padding: 40px 20px; color: var(--text-dim); }
+        .panel-footer { padding: 15px; border-top: 1px solid var(--border); }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 150;
+        }
+
+        .overlay.show { opacity: 1; pointer-events: auto; }
+
+        .info-box {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 10px 0;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .info-box strong { color: var(--accent); }
+
+        @media (max-width: 768px) {
+            .header { padding: 15px 20px; flex-wrap: wrap; gap: 15px; }
+            .main { padding: 20px; }
+            .drop-title { font-size: 1.4rem; }
+            .drop-methods { flex-direction: column; align-items: center; }
+            .panel { width: 100%; }
+            .url-bar { flex-direction: column; }
+            .preview-actions { flex-direction: column; align-items: stretch; }
+            .preview-buttons { justify-content: center; }
+        }
+
+        #fileInput { display: none; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">🔍</div>
+            <h1>Reverse<span>Search</span></h1>
+        </div>
+        <div class="header-actions">
+            <button class="header-btn" id="historyBtn"><span>📂</span> History</button>
+            <button class="header-btn" id="helpBtn"><span>❓</span> How it works</button>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="engines-bar">
+            <div class="engine-toggle active" data-engine="google"><div class="engine-dot"></div><span class="engine-name">Google Lens</span></div>
+            <div class="engine-toggle active" data-engine="yandex"><div class="engine-dot"></div><span class="engine-name">Yandex</span></div>
+            <div class="engine-toggle" data-engine="bing"><div class="engine-dot"></div><span class="engine-name">Bing</span></div>
+            <div class="engine-toggle" data-engine="tineye"><div class="engine-dot"></div><span class="engine-name">TinEye</span></div>
+            <div class="engine-toggle" data-engine="saucenao"><div class="engine-dot"></div><span class="engine-name">SauceNAO</span></div>
+        </div>
+
+        <div class="drop-zone" id="dropZone">
+            <div class="drop-content">
+                <div class="drop-icon">📷</div>
+                <h2 class="drop-title">Drop image — search starts automatically</h2>
+                <p class="drop-subtitle">
+                    Image uploads to temporary host, then opens in all selected engines.<br>
+                    <strong>Zero clicks needed.</strong>
+                </p>
+                <div class="drop-methods">
+                    <div class="drop-method"><span>📁</span> <strong>Drop</strong> a file</div>
+                    <div class="drop-method"><span>📋</span> <strong>Ctrl+V</strong> paste</div>
+                    <div class="drop-method"><span>🖱️</span> <strong>Click</strong> to browse</div>
+                </div>
+            </div>
+
+            <div class="preview-container">
+                <div class="preview-image-wrap">
+                    <img class="preview-image" id="previewImage" alt="Preview">
+                </div>
+                <div class="preview-actions">
+                    <div class="preview-info"><span id="imageInfo">Ready</span></div>
+                    <div class="preview-buttons">
+                        <button class="action-btn primary" id="searchAgainBtn"><span>🔍</span> Search Again</button>
+                        <button class="action-btn" id="copyLinkBtn"><span>🔗</span> Copy Link</button>
+                        <button class="action-btn" id="downloadBtn"><span>⬇️</span> Download</button>
+                        <button class="action-btn danger" id="clearBtn"><span>✕</span> Clear</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="url-bar">
+            <input type="text" class="url-input" id="urlInput" placeholder="Or paste an image URL here and press Enter...">
+            <button class="url-btn" id="urlSearchBtn">🔍 Search URL</button>
+        </div>
+    </main>
+
+    <div class="status-bar" id="statusBar">
+        <div class="spinner"></div>
+        <span class="status-text" id="statusText">Processing...</span>
+        <div class="progress-bar" id="progressBar" style="display: none;">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMessage">Success!</span></div>
+    <div class="overlay" id="overlay"></div>
+
+    <div class="panel" id="panel">
+        <div class="panel-header">
+            <h2>📂 History & Settings</h2>
+            <button class="panel-close" id="panelClose">✕</button>
+        </div>
+        <div class="panel-content">
+            <div class="settings-section">
+                <div class="settings-section-title">⚙️ Settings</div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-label">Auto-search on load</div>
+                        <div class="settings-desc">Immediately search when image loads</div>
+                    </div>
+                    <div class="toggle-switch on" id="autoSearchToggle"></div>
+                </div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-label">Save history</div>
+                        <div class="settings-desc">Remember searched images</div>
+                    </div>
+                    <div class="toggle-switch on" id="saveHistoryToggle"></div>
+                </div>
+            </div>
+            <div class="settings-section">
+                <div class="settings-section-title">📂 Search History</div>
+                <div class="history-list" id="historyList"><div class="history-empty">No searches yet</div></div>
+            </div>
+        </div>
+        <div class="panel-footer">
+            <button class="action-btn danger" style="width: 100%; justify-content: center;" id="clearHistoryBtn"><span>🗑️</span> Clear All History</button>
+        </div>
+    </div>
+
+    <div class="panel" id="helpPanel">
+        <div class="panel-header">
+            <h2>❓ How it works</h2>
+            <button class="panel-close" id="helpClose">✕</button>
+        </div>
+        <div class="panel-content" style="padding: 20px;">
+            <div class="info-box">
+                <strong>🚀 Fully Automatic!</strong><br>
+                Drop an image → it uploads → search engines open with your image pre-loaded.
+            </div>
+            
+            <h3 style="margin: 20px 0 10px; font-size: 1rem;">How the magic happens:</h3>
+            <ol style="padding-left: 20px; line-height: 2; color: var(--text-dim);">
+                <li><strong style="color: var(--text);">You drop/paste an image</strong></li>
+                <li><strong style="color: var(--text);">Image auto-uploads</strong> to Catbox (temp 1hr host)</li>
+                <li><strong style="color: var(--text);">Public URL generated</strong></li>
+                <li><strong style="color: var(--text);">Search engines open</strong> with the URL — image pre-loaded!</li>
+            </ol>
+
+            <h3 style="margin: 20px 0 10px; font-size: 1rem;">For URL images:</h3>
+            <p style="color: var(--text-dim); line-height: 1.6;">
+                If you paste a URL, no upload needed — we pass the URL directly to search engines.
+            </p>
+
+            <h3 style="margin: 20px 0 10px; font-size: 1rem;">Privacy note:</h3>
+            <p style="color: var(--text-dim); line-height: 1.6;">
+                Uploaded images are stored on <strong style="color: var(--accent);">litterbox.catbox.moe</strong> temporarily (1 hour) then auto-deleted. This is necessary so Google/Yandex/etc can fetch your image.
+            </p>
+
+            <h3 style="margin: 20px 0 10px; font-size: 1rem;">Search engines:</h3>
+            <ul style="padding-left: 20px; line-height: 2; color: var(--text-dim);">
+                <li><strong style="color: var(--google);">Google Lens</strong> — Best for general recognition</li>
+                <li><strong style="color: var(--yandex);">Yandex</strong> — Great for finding higher res versions</li>
+                <li><strong style="color: var(--bing);">Bing</strong> — Good for products</li>
+                <li><strong style="color: var(--tineye);">TinEye</strong> — Find where image appears online</li>
+                <li><strong style="color: var(--saucenao);">SauceNAO</strong> — Best for anime/artwork</li>
+            </ul>
+        </div>
+    </div>
+
+    <input type="file" id="fileInput" accept="image/*">
+
+    <script>
+        const SEARCH_ENGINES = {
+            google: { name: 'Google Lens', url: (u) => `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(u)}` },
+            yandex: { name: 'Yandex', url: (u) => `https://yandex.com/images/search?rpt=imageview&url=${encodeURIComponent(u)}` },
+            bing: { name: 'Bing', url: (u) => `https://www.bing.com/images/search?view=detailv2&iss=sbi&form=SBIVSP&sbisrc=UrlPaste&q=imgurl:${encodeURIComponent(u)}` },
+            tineye: { name: 'TinEye', url: (u) => `https://tineye.com/search?url=${encodeURIComponent(u)}` },
+            saucenao: { name: 'SauceNAO', url: (u) => `https://saucenao.com/search.php?url=${encodeURIComponent(u)}` }
+        };
+
+        let currentImageUrl = '';
+        let currentImageData = null;
+        let hostedUrl = null;
+        let settings = JSON.parse(localStorage.getItem('rs_settings') || '{"autoSearch":true,"saveHistory":true}');
+        let activeEngines = JSON.parse(localStorage.getItem('rs_engines') || '["google","yandex"]');
+        let history = JSON.parse(localStorage.getItem('rs_history') || '[]');
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const previewImage = document.getElementById('previewImage');
+        const imageInfo = document.getElementById('imageInfo');
+        const urlInput = document.getElementById('urlInput');
+        const statusBar = document.getElementById('statusBar');
+        const statusText = document.getElementById('statusText');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+
+        function showToast(msg, icon = '✓', err = false) {
+            const t = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = msg;
+            document.getElementById('toastIcon').textContent = icon;
+            t.classList.toggle('error', err);
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        function showStatus(msg, prog = false) {
+            statusText.textContent = msg;
+            progressBar.style.display = prog ? 'block' : 'none';
+            statusBar.classList.add('show');
+        }
+
+        function updateProgress(p) { progressFill.style.width = p + '%'; }
+        function hideStatus() { statusBar.classList.remove('show'); progressFill.style.width = '0%'; }
+
+        function saveSettings() {
+            localStorage.setItem('rs_settings', JSON.stringify(settings));
+            localStorage.setItem('rs_engines', JSON.stringify(activeEngines));
+        }
+
+        function saveHistoryData() { localStorage.setItem('rs_history', JSON.stringify(history)); }
+
+        async function uploadToLitterbox(file) {
+            showStatus('Uploading image...', true);
+            updateProgress(10);
+
+            const formData = new FormData();
+            formData.append('reqtype', 'fileupload');
+            formData.append('time', '1h');
+            formData.append('fileToUpload', file);
+
+            try {
+                updateProgress(30);
+                const res = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', { method: 'POST', body: formData });
+                updateProgress(80);
+                if (!res.ok) throw new Error('Upload failed');
+                const url = await res.text();
+                updateProgress(100);
+                if (url.startsWith('https://')) return url.trim();
+                throw new Error('Invalid response');
+            } catch (e) {
+                console.error('Litterbox failed:', e);
+                showStatus('Trying backup host...', true);
+                updateProgress(10);
+                const formData2 = new FormData();
+                formData2.append('reqtype', 'fileupload');
+                formData2.append('fileToUpload', file);
+                try {
+                    const res2 = await fetch('https://catbox.moe/user/api.php', { method: 'POST', body: formData2 });
+                    updateProgress(80);
+                    const url2 = await res2.text();
+                    updateProgress(100);
+                    if (url2.startsWith('https://')) return url2.trim();
+                } catch (e2) { console.error('Catbox failed:', e2); }
+                return null;
+            }
+        }
+
+        function dataURLtoFile(dataurl, filename = 'image.png') {
+            const arr = dataurl.split(',');
+            const mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) u8arr[n] = bstr.charCodeAt(n);
+            return new File([u8arr], filename, { type: mime });
+        }
+
+        async function performSearch(imageUrl, isLocal = false) {
+            if (activeEngines.length === 0) { showToast('Select at least one engine!', '⚠️', true); return; }
+
+            let searchUrl = imageUrl;
+
+            if (isLocal) {
+                const file = dataURLtoFile(imageUrl);
+                const uploaded = await uploadToLitterbox(file);
+                if (!uploaded) { hideStatus(); showToast('Upload failed. Try a URL.', '❌', true); return; }
+                searchUrl = uploaded;
+                hostedUrl = uploaded;
+                imageInfo.innerHTML = `Hosted: <strong>${uploaded.substring(0, 35)}...</strong>`;
+            }
+
+            showStatus(`Opening ${activeEngines.length} engine${activeEngines.length > 1 ? 's' : ''}...`);
+
+            activeEngines.forEach((eng, i) => {
+                setTimeout(() => {
+                    window.open(SEARCH_ENGINES[eng].url(searchUrl), '_blank');
+                    if (i === activeEngines.length - 1) { setTimeout(() => { hideStatus(); showToast(`Opened ${activeEngines.length} engines!`); }, 300); }
+                }, i * 400);
+            });
+
+            if (settings.saveHistory) {
+                history.unshift({ url: searchUrl, thumb: currentImageData || searchUrl, time: Date.now(), engines: [...activeEngines] });
+                if (history.length > 30) history.pop();
+                saveHistoryData();
+                renderHistory();
+            }
+        }
+
+        function loadImage(src, isLocal = false) {
+            currentImageUrl = isLocal ? '' : src;
+            currentImageData = isLocal ? src : null;
+            hostedUrl = null;
+            previewImage.src = src;
+            dropZone.classList.add('has-image');
+
+            const img = new Image();
+            img.onload = () => { imageInfo.innerHTML = `<strong>${img.naturalWidth} × ${img.naturalHeight}</strong>`; };
+            img.src = src;
+
+            if (settings.autoSearch) setTimeout(() => performSearch(src, isLocal), 300);
+        }
+
+        function loadFromUrl(url) {
+            if (!url.match(/^https?:\/\/.+/i)) { showToast('Enter a valid URL', '⚠️', true); return; }
+            loadImage(url, false);
+        }
+
+        function loadFromFile(file) {
+            if (!file || !file.type.startsWith('image/')) { showToast('Select an image', '⚠️', true); return; }
+            const reader = new FileReader();
+            reader.onload = (e) => loadImage(e.target.result, true);
+            reader.readAsDataURL(file);
+        }
+
+        function clearImage() {
+            currentImageUrl = '';
+            currentImageData = null;
+            hostedUrl = null;
+            previewImage.src = '';
+            dropZone.classList.remove('has-image');
+            urlInput.value = '';
+            imageInfo.textContent = 'Ready';
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('historyList');
+            if (history.length === 0) { list.innerHTML = '<div class="history-empty">No searches yet</div>'; return; }
+            list.innerHTML = history.map((item, i) => `
+                <div class="history-item">
+                    <img class="history-thumb" src="${item.thumb}" alt="" loading="lazy" onerror="this.style.display='none'">
+                    <div class="history-info">
+                        <div class="history-time">${formatTime(item.time)}</div>
+                        <div class="history-engines">${item.engines.map(e => SEARCH_ENGINES[e]?.name || e).join(', ')}</div>
+                        <div class="history-actions">
+                            <button class="history-btn" onclick="searchFromHistory(${i})">🔍 Search</button>
+                            <button class="history-btn" onclick="copyHistoryUrl(${i})">🔗 Copy</button>
+                            <button class="history-btn" onclick="removeFromHistory(${i})">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function formatTime(ts) {
+            const diff = Date.now() - ts;
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+            return new Date(ts).toLocaleDateString();
+        }
+
+        window.searchFromHistory = (i) => { const item = history[i]; closePanel(); if (item.thumb.startsWith('data:')) loadImage(item.thumb, true); else { urlInput.value = item.url; loadImage(item.url, false); } };
+        window.copyHistoryUrl = (i) => { navigator.clipboard.writeText(history[i].url); showToast('URL copied!'); };
+        window.removeFromHistory = (i) => { history.splice(i, 1); saveHistoryData(); renderHistory(); showToast('Removed'); };
+
+        function openPanel(id) { document.getElementById(id).classList.add('open'); document.getElementById('overlay').classList.add('show'); if (id === 'panel') renderHistory(); }
+        function closePanel() { document.querySelectorAll('.panel').forEach(p => p.classList.remove('open')); document.getElementById('overlay').classList.remove('show'); }
+
+        // Engine toggles
+        document.querySelectorAll('.engine-toggle').forEach(t => {
+            const eng = t.dataset.engine;
+            t.classList.toggle('active', activeEngines.includes(eng));
+            t.addEventListener('click', () => {
+                t.classList.toggle('active');
+                if (t.classList.contains('active')) { if (!activeEngines.includes(eng)) activeEngines.push(eng); }
+                else activeEngines = activeEngines.filter(e => e !== eng);
+                saveSettings();
+            });
+        });
+
+        // Drop zone
+        dropZone.addEventListener('click', (e) => { if (!dropZone.classList.contains('has-image') && !e.target.closest('.preview-actions')) fileInput.click(); });
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) loadFromFile(file);
+            else {
+                const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+                if (url && url.match(/^https?:\/\/.+/i)) { urlInput.value = url; loadFromUrl(url); }
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => { if (e.target.files[0]) loadFromFile(e.target.files[0]); });
+
+        // Global paste
+        document.addEventListener('paste', (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const item of items) { if (item.type.startsWith('image/')) { e.preventDefault(); loadFromFile(item.getAsFile()); return; } }
+            const text = e.clipboardData.getData('text');
+            if (text && text.match(/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|bmp|svg)/i)) { e.preventDefault(); urlInput.value = text; loadFromUrl(text); }
+        });
+
+        // URL input
+        urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') loadFromUrl(urlInput.value.trim()); });
+        document.getElementById('urlSearchBtn').addEventListener('click', () => loadFromUrl(urlInput.value.trim()));
+
+        // Actions
+        document.getElementById('searchAgainBtn').addEventListener('click', () => {
+            if (hostedUrl) {
+                showStatus(`Opening ${activeEngines.length} engines...`);
+                activeEngines.forEach((eng, i) => {
+                    setTimeout(() => {
+                        window.open(SEARCH_ENGINES[eng].url(hostedUrl), '_blank');
+                        if (i === activeEngines.length - 1) { setTimeout(hideStatus, 300); showToast('Opened!'); }
+                    }, i * 400);
+                });
+            } else if (currentImageUrl) performSearch(currentImageUrl, false);
+            else if (currentImageData) performSearch(currentImageData, true);
+        });
+
+        document.getElementById('copyLinkBtn').addEventListener('click', () => {
+            const url = hostedUrl || currentImageUrl;
+            if (url) { navigator.clipboard.writeText(url); showToast('Link copied!'); }
+            else showToast('No link available', '⚠️', true);
+        });
+
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const url = hostedUrl || currentImageUrl || currentImageData;
+            if (url) { const link = document.createElement('a'); link.href = url; link.download = `image_${Date.now()}.jpg`; link.click(); showToast('Download started'); }
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', clearImage);
+
+        // Panels
+        document.getElementById('historyBtn').addEventListener('click', () => openPanel('panel'));
+        document.getElementById('helpBtn').addEventListener('click', () => openPanel('helpPanel'));
+        document.getElementById('panelClose').addEventListener('click', closePanel);
+        document.getElementById('helpClose').addEventListener('click', closePanel);
+        document.getElementById('overlay').addEventListener('click', closePanel);
+        document.getElementById('clearHistoryBtn').addEventListener('click', () => { if (confirm('Clear all history?')) { history = []; saveHistoryData(); renderHistory(); showToast('Cleared'); } });
+
+        // Settings
+        document.getElementById('autoSearchToggle').addEventListener('click', function() { this.classList.toggle('on'); settings.autoSearch = this.classList.contains('on'); saveSettings(); });
+        document.getElementById('saveHistoryToggle').addEventListener('click', function() { this.classList.toggle('on'); settings.saveHistory = this.classList.contains('on'); saveSettings(); });
+
+        // Init
+        document.getElementById('autoSearchToggle').classList.toggle('on', settings.autoSearch);
+        document.getElementById('saveHistoryToggle').classList.toggle('on', settings.saveHistory);
+        renderHistory();
+    </script>
+</body>
+</html>
