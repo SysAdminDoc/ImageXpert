@@ -518,7 +518,7 @@
                 <h2 class="drop-title">Drop image — search starts automatically</h2>
                 <p class="drop-subtitle">
                     Image uploads to temporary host, then opens in all selected engines.<br>
-                    <strong>Zero clicks needed.</strong>
+                    <strong>Zero clicks needed.</strong> <span style="color: var(--text-dim); font-size: 0.85rem;">(Allow popups if prompted)</span>
                 </p>
                 <div class="drop-methods">
                     <div class="drop-method"><span>📁</span> <strong>Drop</strong> a file</div>
@@ -630,6 +630,11 @@
                 <li><strong style="color: var(--tineye);">TinEye</strong> — Find where image appears online</li>
                 <li><strong style="color: var(--saucenao);">SauceNAO</strong> — Best for anime/artwork</li>
             </ul>
+
+            <h3 style="margin: 20px 0 10px; font-size: 1rem;">⚠️ Popup blocker:</h3>
+            <p style="color: var(--text-dim); line-height: 1.6;">
+                If only one tab opens, your browser is blocking popups. <strong style="color: var(--accent);">Click the blocked popup icon</strong> in your address bar and select "Always allow popups from this site". Then click "Search Again".
+            </p>
         </div>
     </div>
 
@@ -746,14 +751,25 @@
                 imageInfo.innerHTML = `Hosted: <strong>${uploaded.substring(0, 35)}...</strong>`;
             }
 
+            // Open all tabs immediately (no setTimeout) to avoid popup blocking
             showStatus(`Opening ${activeEngines.length} engine${activeEngines.length > 1 ? 's' : ''}...`);
-
-            activeEngines.forEach((eng, i) => {
-                setTimeout(() => {
-                    window.open(SEARCH_ENGINES[eng].url(searchUrl), '_blank');
-                    if (i === activeEngines.length - 1) { setTimeout(() => { hideStatus(); showToast(`Opened ${activeEngines.length} engines!`); }, 300); }
-                }, i * 400);
+            
+            const opened = [];
+            activeEngines.forEach((eng) => {
+                const win = window.open(SEARCH_ENGINES[eng].url(searchUrl), '_blank');
+                if (win) opened.push(eng);
             });
+
+            setTimeout(() => {
+                hideStatus();
+                if (opened.length === activeEngines.length) {
+                    showToast(`Opened ${opened.length} engines!`);
+                } else if (opened.length > 0) {
+                    showToast(`Opened ${opened.length}/${activeEngines.length} — allow popups for all`, '⚠️', true);
+                } else {
+                    showToast('Popups blocked! Click "Search Again" after allowing popups', '🚫', true);
+                }
+            }, 300);
 
             if (settings.saveHistory) {
                 history.unshift({ url: searchUrl, thumb: currentImageData || searchUrl, time: Date.now(), engines: [...activeEngines] });
@@ -879,12 +895,10 @@
         document.getElementById('searchAgainBtn').addEventListener('click', () => {
             if (hostedUrl) {
                 showStatus(`Opening ${activeEngines.length} engines...`);
-                activeEngines.forEach((eng, i) => {
-                    setTimeout(() => {
-                        window.open(SEARCH_ENGINES[eng].url(hostedUrl), '_blank');
-                        if (i === activeEngines.length - 1) { setTimeout(hideStatus, 300); showToast('Opened!'); }
-                    }, i * 400);
+                activeEngines.forEach((eng) => {
+                    window.open(SEARCH_ENGINES[eng].url(hostedUrl), '_blank');
                 });
+                setTimeout(() => { hideStatus(); showToast('Opened!'); }, 300);
             } else if (currentImageUrl) performSearch(currentImageUrl, false);
             else if (currentImageData) performSearch(currentImageData, true);
         });
