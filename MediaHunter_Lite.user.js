@@ -2,6 +2,8 @@
 // @name         MediaHunter Lite
 // @namespace    http://tampermonkey.net/
 // @version      1.0.0
+// @updateURL      https://raw.githubusercontent.com/SysAdminDoc/ImageXpert/main/MediaHunter_Lite.user.js
+// @downloadURL    https://raw.githubusercontent.com/SysAdminDoc/ImageXpert/main/MediaHunter_Lite.user.js
 // @description  Lightweight media search & download tool. Deep Scan pages for images/videos, Reverse Image Search, Batch Download.
 // @author       Debloated Fork
 // @icon         https://img.icons8.com/?size=100&id=zS0X1cipar3P&format=png&color=000000
