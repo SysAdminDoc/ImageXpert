@@ -3,3 +3,4 @@ dist/
 *.bak
 .env
 *.log
+CLAUDE.md
