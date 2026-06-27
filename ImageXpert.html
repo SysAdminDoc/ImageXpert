@@ -1044,7 +1044,6 @@
         }
 
         function clearGallery() {
-            if (!confirm('Clear all saved images?')) return;
             gallery = [];
             saveGallery();
             showToast('Gallery cleared');

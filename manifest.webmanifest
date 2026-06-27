@@ -1,0 +1,26 @@
+{
+  "name": "ImageXpert",
+  "short_name": "ImageXpert",
+  "description": "Reverse image search hub with batch dispatch, local hashes, preprocessing, and companion right-click search.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d0d0d",
+  "theme_color": "#1e1e2e",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "image"
+    }
+  }
+}

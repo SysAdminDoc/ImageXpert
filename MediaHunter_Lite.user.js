@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MediaHunter Lite
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0
+// @version      1.1.0
 // @updateURL      https://raw.githubusercontent.com/SysAdminDoc/ImageXpert/main/MediaHunter_Lite.user.js
 // @downloadURL    https://raw.githubusercontent.com/SysAdminDoc/ImageXpert/main/MediaHunter_Lite.user.js
 // @description  Lightweight media search & download tool. Deep Scan pages for images/videos, Reverse Image Search, Batch Download.
@@ -49,11 +49,13 @@
         btn_p: "🚀 SEARCH", btn_scan_p: "👁️ DEEP SCAN PHOTOS", btn_scan_v: "👁️ DEEP SCAN VIDEOS",
         btn_v: "🎥 SEARCH VIDEOS", btn_ext: "🌐 OPEN ALL ENGINES",
         btn_clr: "Clear History", btn_dl: "DOWNLOAD", load: "Scanning...", dl_wait: "⏳...",
-        confirm_del: "Delete Gallery?", confirm_clr: "Empty Gallery?", empty: "Empty!",
+        empty: "Empty!",
         vid_tag: "Video Tag", file_link: "File Link", xray_src: "Deep Scan", yt_copy: "Link Copied!",
-        cfg_theme: "UI THEME", cfg_keys: "KEYBOARD SHORTCUTS", cfg_hide: "HIDE UI",
-        key_h: "Hide/Show All", key_s: "Toggle Panel", key_b: "Toggle Gallery", power_off: "Hide Interface (Alt+X)"
+        cfg_theme: "UI THEME", cfg_hide: "HIDE UI", power_off: "Hide Interface"
     };
+
+    const IMAGEXPERT_URL = 'https://sysadmindoc.github.io/ImageXpert/';
+    let lastContextImageUrl = '';
 
     const state = {
         isOpen: false,
@@ -124,16 +126,48 @@
         document.documentElement.style.setProperty('--mh-theme', color);
     }
 
-    GM_registerMenuCommand(`👁️ Toggle Panel (Alt+M)`, toggleSuite);
-    GM_registerMenuCommand(`🎞️ Toggle Bar (Alt+B)`, toggleBar);
-    GM_registerMenuCommand(`👻 Stealth Mode (Alt+X)`, toggleMasterVisibility);
+    function notify(message) {
+        const toast = document.createElement('div');
+        toast.className = 'mh-toast';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.classList.add('visible'), 20);
+        setTimeout(() => {
+            toast.classList.remove('visible');
+            setTimeout(() => toast.remove(), 250);
+        }, 1800);
+    }
 
-    document.addEventListener('keydown', (e) => {
-        if (e.altKey && (e.key === 'x' || e.key === 'X')) toggleMasterVisibility();
-        if (e.altKey && (e.key === 'm' || e.key === 'M')) toggleSuite();
-        if (e.altKey && (e.key === 'b' || e.key === 'B')) toggleBar();
-        if (e.altKey && (e.key === 's' || e.key === 'S')) toggleSuite();
-    });
+    function absoluteUrl(url) {
+        try { return new URL(url, location.href).href; }
+        catch (e) { return ''; }
+    }
+
+    function openImageXpertFor(url) {
+        const clean = absoluteUrl(url);
+        if (!clean) { notify('No image URL captured'); return; }
+        GM_openInTab(`${IMAGEXPERT_URL}?image=${encodeURIComponent(clean)}`, { active: true });
+    }
+
+    function showImageXpertContextMenu(x, y, url) {
+        document.getElementById('mh-context-menu')?.remove();
+        const menu = document.createElement('button');
+        menu.id = 'mh-context-menu';
+        menu.textContent = 'Search with ImageXpert';
+        menu.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
+        menu.style.top = `${Math.min(y, window.innerHeight - 54)}px`;
+        menu.onclick = () => {
+            menu.remove();
+            openImageXpertFor(url);
+        };
+        document.body.appendChild(menu);
+        setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
+    }
+
+    GM_registerMenuCommand('Toggle MediaHunter Panel', toggleSuite);
+    GM_registerMenuCommand('Toggle MediaHunter Bar', toggleBar);
+    GM_registerMenuCommand('Hide MediaHunter Interface', toggleMasterVisibility);
+    GM_registerMenuCommand('Search last image with ImageXpert', () => openImageXpertFor(lastContextImageUrl));
 
     function toggleMasterVisibility() {
         state.isVisible = !state.isVisible;
@@ -241,6 +275,14 @@
             z-index: 2147483645; cursor: pointer; display: flex; align-items: center; justify-content: center;
             color: var(--mh-theme); box-shadow: 0 4px 20px rgba(0,0,0,0.6); transition: all 0.3s ease; }
         #mh-trigger:hover { transform: scale(1.1) rotate(90deg); color: #000; background: var(--mh-theme); }
+        #mh-context-menu { position: fixed; z-index: 2147483657; padding: 10px 14px; background: #0a0a0a;
+            border: 1px solid var(--mh-theme); border-radius: 6px; color: #fff; font: 700 12px system-ui;
+            cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.65); }
+        #mh-context-menu:hover { background: var(--mh-theme); color: #000; }
+        .mh-toast { position: fixed; right: 16px; bottom: 224px; z-index: 2147483657; padding: 10px 14px;
+            background: #0a0a0a; border: 1px solid var(--mh-theme); border-radius: 6px; color: #fff;
+            font: 700 12px system-ui; opacity: 0; transform: translateY(10px); transition: 0.25s; }
+        .mh-toast.visible { opacity: 1; transform: translateY(0); }
         .mh-loading { grid-column: span 2; text-align: center; color: #666; padding: 16px; font-size: 11px; }
         .mh-hist-item { padding: 8px; border-bottom: 1px solid #222; cursor: pointer; color: #aaa; font-size: 12px; }
         .mh-hist-item:hover { background: #151515; }
@@ -258,9 +300,6 @@
         .mh-theme-grid { display: flex; gap: 8px; margin-bottom: 16px; }
         .mh-theme-btn { width: 36px; height: 36px; border-radius: 4px; cursor: pointer; border: 2px solid #222; }
         .mh-theme-btn.active { border-color: #fff; }
-        .mh-shortcut-row { display: flex; justify-content: space-between; border-bottom: 1px solid #222;
-            padding: 8px 0; font-size: 10px; color: #888; }
-        .mh-shortcut-key { color: var(--mh-theme); font-weight: 700; font-family: monospace; }
     `;
     GM_addStyle(css);
 
@@ -328,10 +367,6 @@
                             <div class="mh-theme-btn" style="background:#D500F9" data-color="#D500F9"></div>
                             <div class="mh-theme-btn" style="background:#FF9100" data-color="#FF9100"></div>
                         </div>
-                        <span class="mh-label" style="margin-top:16px;">${TEXT.cfg_keys}</span>
-                        <div class="mh-shortcut-row"><span>${TEXT.key_h}</span><span class="mh-shortcut-key">Alt + X</span></div>
-                        <div class="mh-shortcut-row"><span>${TEXT.key_s}</span><span class="mh-shortcut-key">Alt + S</span></div>
-                        <div class="mh-shortcut-row"><span>${TEXT.key_b}</span><span class="mh-shortcut-key">Alt + B</span></div>
                         <button class="mh-btn btn-sec" id="btn-hide-ui" style="margin-top:16px; border-color:#D32F2F; color:#D32F2F;">⛔ ${TEXT.cfg_hide}</button>
                     </div>
                 </div>
@@ -366,6 +401,15 @@
     const contentArea = document.querySelector('.mh-content');
 
     document.documentElement.style.setProperty('--mh-theme', state.themeColor);
+
+    document.addEventListener('contextmenu', (e) => {
+        const img = e.target?.closest?.('img');
+        const src = extractValidImage(img);
+        if (!src) return;
+        e.preventDefault();
+        lastContextImageUrl = src;
+        showImageXpertContextMenu(e.clientX, e.clientY, src);
+    }, true);
 
     document.getElementById('mh-trigger').onclick = toggleSuite;
     document.getElementById('mh-close').onclick = toggleSuite;
@@ -457,7 +501,7 @@
             div.querySelector('.btn-dl').onclick = () => {
                 if (isYT) {
                     GM_setClipboard(item.full);
-                    alert(TEXT.yt_copy);
+                    notify(TEXT.yt_copy);
                     window.open('https://cobalt.tools/', '_blank');
                 } else {
                     GM_download({ url: item.full, name: item.name, saveAs: false });
@@ -585,7 +629,7 @@
 
     function searchVideos(isNew = true) {
         const query = document.getElementById('mh-input-v').value;
-        if (!query) return alert("Enter a search term!");
+        if (!query) { notify("Enter a search term"); return; }
         if (isNew) {
             state.isScanning = false;
             addToHistory(query);
@@ -769,34 +813,31 @@
     };
 
     document.getElementById('mh-add-gal').onclick = () => {
-        const name = prompt("New Gallery Name:");
-        if (name) {
-            state.collections.push({ name, items: [] });
-            state.activeCollectionIndex = state.collections.length - 1;
-            saveCollections();
-            updateGalleryDropdown();
-            renderCollection();
-        }
+        const name = `Gallery ${state.collections.length + 1}`;
+        state.collections.push({ name, items: [] });
+        state.activeCollectionIndex = state.collections.length - 1;
+        saveCollections();
+        updateGalleryDropdown();
+        renderCollection();
+        notify(`${name} created`);
     };
 
     document.getElementById('mh-del-gal').onclick = () => {
-        if (state.collections.length <= 1) return alert("Cannot delete the default gallery.");
-        if (confirm(TEXT.confirm_del)) {
-            state.collections.splice(state.activeCollectionIndex, 1);
-            state.activeCollectionIndex = 0;
-            saveCollections();
-            updateGalleryDropdown();
-            renderCollection();
-        }
+        if (state.collections.length <= 1) { notify("Default gallery stays available"); return; }
+        state.collections.splice(state.activeCollectionIndex, 1);
+        state.activeCollectionIndex = 0;
+        saveCollections();
+        updateGalleryDropdown();
+        renderCollection();
+        notify("Gallery deleted");
     };
 
     document.getElementById('mh-clear-gal').onclick = () => {
-        if (confirm(TEXT.confirm_clr)) {
-            getActiveCollection().items = [];
-            saveCollections();
-            updateGalleryDropdown();
-            renderCollection();
-        }
+        getActiveCollection().items = [];
+        saveCollections();
+        updateGalleryDropdown();
+        renderCollection();
+        notify("Gallery emptied");
     };
 
     document.getElementById('btn-search-p').onclick = () => searchPhotos(true);
@@ -811,7 +852,7 @@
 
     document.getElementById('btn-dl-all').onclick = () => {
         const active = getActiveCollection();
-        if (active.items.length === 0) return alert(TEXT.empty);
+        if (active.items.length === 0) { notify(TEXT.empty); return; }
         const btn = document.getElementById('btn-dl-all');
         btn.innerText = TEXT.dl_wait;
         active.items.forEach((item) => {
@@ -824,7 +865,7 @@
 
     function openExternal(engine) {
         const q = document.getElementById('mh-input-p').value;
-        if (!q) return alert("Enter a keyword!");
+        if (!q) { notify("Enter a keyword"); return; }
         const enc = encodeURIComponent(q);
         let url = '';
         switch (engine) {
