@@ -614,6 +614,10 @@
         .dispatch-status[data-status="blocked"], .dispatch-status[data-status="failed"], .dispatch-status[data-status="consent-required"] { color: #ff8c8c; }
         #cancelOperationBtn { margin-left: 10px; }
         .diagnostics-list { max-height: 180px; overflow: auto; font: 0.72rem/1.5 monospace; color: var(--text-dim); white-space: pre-wrap; }
+        .file-metadata { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 10px; }
+        .metadata-card { padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+        .metadata-card strong { display: block; color: var(--accent); font-size: .72rem; margin-bottom: 4px; }
+        .metadata-card span { color: var(--text-dim); font-size: .78rem; overflow-wrap: anywhere; }
         .roi-canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
         .roi-canvas[hidden] { display: none; }
         .context-input { min-width: 180px; flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
@@ -646,7 +650,7 @@
             .privacy-banner p { overflow-wrap: anywhere; }
         }
 
-        #fileInput, #cameraInput { display: none; }
+        #fileInput, #cameraInput, #engineManifestInput { display: none; }
     </style>
 </head>
 <body>
@@ -719,6 +723,7 @@
                         <input class="context-input" id="textContextInput" type="text" maxlength="120" placeholder="Optional Bing text context">
                     </div>
                     <div class="hash-grid" id="hashGrid"></div>
+                    <div class="file-metadata" id="fileMetadata"></div>
                     <div class="batch-strip" id="batchStrip"></div>
                 </div>
             </div>
@@ -803,6 +808,15 @@
                 </div>
                 <div class="diagnostics-list" id="diagnosticsList">No diagnostic events.</div>
             </div>
+            <div class="settings-section">
+                <div class="settings-section-title">🧩 Custom engines</div>
+                <p class="settings-desc" id="customEngineSummary">No custom engines installed. Imports are data-only HTTPS templates.</p>
+                <div class="history-actions">
+                    <button class="history-btn" type="button" id="importEnginesBtn">Import manifest</button>
+                    <button class="history-btn" type="button" id="exportEnginesBtn">Export manifest</button>
+                    <button class="history-btn" type="button" id="undoEnginesBtn" hidden>Undo import</button>
+                </div>
+            </div>
         </div>
         <div class="panel-footer">
             <button class="action-btn danger" style="width: 100%; justify-content: center;" id="clearHistoryBtn"><span>🗑️</span> Clear All History</button>
@@ -860,6 +874,7 @@
 
     <input type="file" id="fileInput" accept="image/*,video/*" multiple>
     <input type="file" id="cameraInput" accept="image/*" capture="environment">
+    <input type="file" id="engineManifestInput" accept="application/json,.json">
 
     <script src="./app-core.js"></script>
     <script src="./i18n.js"></script>
@@ -882,6 +897,39 @@
             iqdb_sankaku: { name: 'IQDB Sankaku', host: 'sankaku.iqdb.org', input: 'url-or-manual', capabilities: ['art-similar'], maintenance: 'active', manualUrl: 'https://sankaku.iqdb.org/', url: (u) => `https://sankaku.iqdb.org/?url=${encodeURIComponent(u)}` },
             pimeyes: { name: 'PimEyes', host: 'pimeyes.com', input: 'manual-only', capabilities: ['face-search'], maintenance: 'active', consentClass: 'biometric', manualUrl: 'https://pimeyes.com/en', manualOnly: true, consentNotice: 'PimEyes is face search. Use only with consent.', url: () => 'https://pimeyes.com/en' }
         };
+        const BUILTIN_ENGINE_IDS = Object.freeze(Object.keys(SEARCH_ENGINES));
+        let customEngineManifest = { schemaVersion: 1, engines: [] };
+        let customEngineBackup = null;
+
+        function installCustomEngineManifest(manifest) {
+            Object.keys(SEARCH_ENGINES)
+                .filter((id) => !BUILTIN_ENGINE_IDS.includes(id))
+                .forEach((id) => delete SEARCH_ENGINES[id]);
+            customEngineManifest = Core.validateEngineManifest(manifest);
+            for (const record of [...customEngineManifest.engines].sort((a, b) => a.order - b.order)) {
+                if (BUILTIN_ENGINE_IDS.includes(record.id)) throw new Error(`Custom engine id conflicts with built-in engine: ${record.id}`);
+                const template = record.urlTemplate;
+                SEARCH_ENGINES[record.id] = {
+                    name: record.displayName,
+                    host: new URL(record.manualUrl).host,
+                    input: 'url-or-manual',
+                    capabilities: record.capabilities,
+                    maintenance: 'active',
+                    consentClass: record.consentClass,
+                    consentNotice: record.consentClass === 'biometric' ? `${record.displayName} is marked as biometric search. Use only with consent.` : '',
+                    manualUrl: record.manualUrl,
+                    url: (sourceUrl) => template.replace('{url}', encodeURIComponent(sourceUrl))
+                };
+            }
+        }
+
+        try {
+            installCustomEngineManifest(Core.safeParse(localStorage.getItem('rs_custom_engines'), customEngineManifest));
+        } catch (error) {
+            localStorage.removeItem('rs_custom_engines');
+            customEngineManifest = { schemaVersion: 1, engines: [] };
+            console.warn('Invalid saved custom engine manifest was removed:', error);
+        }
 
         const DEFAULT_SETTINGS = { autoSearch: false, saveHistory: true, noUpload: true, externalUploadConsent: false };
         const DEFAULT_ENGINES = ['google', 'yandex'];
@@ -892,6 +940,8 @@
         let lastHashes = null;
         let originalHashes = null;
         let roiOriginalSource = '';
+        let currentFileMetadata = null;
+        let currentProvenance = { status: 'not-checked', detail: 'Load a local file to inspect provenance.' };
         let lastPreprocessing = [];
         let dispatches = [];
         let activeOperation = null;
@@ -974,6 +1024,68 @@
             list.textContent = diagnostics.length
                 ? diagnostics.slice(-20).map((event) => `${event.timestamp} ${event.phase} ${event.engine || '-'} ${event.code} ${event.latencyMs}ms ${event.detail}`).join('\n')
                 : 'No diagnostic events.';
+        }
+
+        function formatBytes(bytes) {
+            if (!Number.isFinite(bytes)) return 'Unknown';
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+        }
+
+        function renderFileMetadata() {
+            const container = document.getElementById('fileMetadata');
+            container.replaceChildren();
+            if (!currentFileMetadata) return;
+            const entries = [
+                ['Type', currentFileMetadata.type || 'Unknown'],
+                ['Size', formatBytes(currentFileMetadata.size)],
+                ['Dimensions', currentFileMetadata.width && currentFileMetadata.height ? `${currentFileMetadata.width} × ${currentFileMetadata.height}` : 'Pending'],
+                ['Modified', currentFileMetadata.lastModified ? new Date(currentFileMetadata.lastModified).toLocaleDateString(activeLocale) : 'Unknown'],
+                ['C2PA provenance', `${currentProvenance.status}: ${currentProvenance.detail}`]
+            ];
+            for (const [label, value] of entries) {
+                const card = document.createElement('div');
+                card.className = 'metadata-card';
+                const heading = document.createElement('strong');
+                heading.textContent = label;
+                const detail = document.createElement('span');
+                detail.textContent = String(value);
+                card.append(heading, detail);
+                container.append(card);
+            }
+        }
+
+        async function inspectLocalProvenance(file) {
+            const parser = globalThis.ImageXpertC2PAParser;
+            if (!parser || typeof parser.inspect !== 'function') {
+                currentProvenance = { status: 'unsupported', detail: 'Optional pinned C2PA parser is not installed.' };
+                renderFileMetadata();
+                return;
+            }
+            try {
+                const result = await parser.inspect(await file.arrayBuffer());
+                if (!result?.manifest) currentProvenance = { status: 'no-manifest', detail: 'No C2PA manifest was found.' };
+                else if (result.valid === true) currentProvenance = { status: 'valid-signature', detail: 'Manifest signature validated; this is not proof that image content is authentic.' };
+                else currentProvenance = { status: 'invalid-signature', detail: String(result.reason || 'Manifest validation failed.').slice(0, 160) };
+            } catch (error) {
+                currentProvenance = { status: 'invalid-or-unreadable', detail: String(error.message || 'Parser failed.').slice(0, 160) };
+            }
+            renderFileMetadata();
+        }
+
+        function inspectLocalFile(file, dimensions = {}) {
+            currentFileMetadata = {
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                lastModified: file.lastModified,
+                width: dimensions.width,
+                height: dimensions.height
+            };
+            currentProvenance = { status: 'checking', detail: 'Inspecting locally.' };
+            renderFileMetadata();
+            inspectLocalProvenance(file);
         }
 
         function showStatus(msg, prog = false) {
@@ -1289,7 +1401,7 @@
                     if (image.naturalWidth > Core.MAX_IMAGE_DIMENSION || image.naturalHeight > Core.MAX_IMAGE_DIMENSION) {
                         reject(new Error(`${file.name} exceeds the ${Core.MAX_IMAGE_DIMENSION}px dimension limit`));
                     } else {
-                        resolve();
+                        resolve({ width: image.naturalWidth, height: image.naturalHeight });
                     }
                 };
                 image.onerror = () => {
@@ -1308,12 +1420,14 @@
                 return;
             }
             if (file.type.startsWith('video/')) {
+                inspectLocalFile(file);
                 await loadVideoFrames(file);
                 return;
             }
             if (!file.type.startsWith('image/')) { showToast('Select an image', '⚠️', true); return; }
             try {
-                await validateImageDimensions(file);
+                const dimensions = await validateImageDimensions(file);
+                inspectLocalFile(file, dimensions);
                 loadImage(await readFileAsDataURL(file), true, skipAuto);
             } catch (error) {
                 showToast(error.message, '⚠️', true);
@@ -1339,10 +1453,10 @@
                     const file = files[i];
                     if (file.type.startsWith('video/')) {
                         const frames = await extractVideoFrames(file, Core.MAX_VIDEO_FRAMES, controller.signal);
-                        frames.forEach((frame, idx) => currentBatch.push({ id: `${file.name}-${idx}`, name: `${file.name} frame ${idx + 1}`, dataUrl: frame.dataUrl, timestamp: frame.timestamp }));
+                        frames.forEach((frame, idx) => currentBatch.push({ id: `${file.name}-${idx}`, name: `${file.name} frame ${idx + 1}`, dataUrl: frame.dataUrl, timestamp: frame.timestamp, metadata: { name: file.name, type: 'image/jpeg', size: file.size, width: frame.width, height: frame.height } }));
                     } else {
-                        await validateImageDimensions(file);
-                        currentBatch.push({ id: `${file.name}-${file.lastModified}`, name: file.name, dataUrl: await readFileAsDataURL(file, controller.signal), timestamp: null });
+                        const dimensions = await validateImageDimensions(file);
+                        currentBatch.push({ id: `${file.name}-${file.lastModified}`, name: file.name, dataUrl: await readFileAsDataURL(file, controller.signal), timestamp: null, metadata: { name: file.name, type: file.type, size: file.size, lastModified: file.lastModified, ...dimensions } });
                     }
                 }
             } catch (error) {
@@ -1354,6 +1468,8 @@
             if (currentBatch.length === 0) { showToast('No searchable frames or images found', '⚠️', true); return; }
             await dedupeCurrentBatch();
             renderBatch(0);
+            currentFileMetadata = currentBatch[0].metadata || null;
+            renderFileMetadata();
             loadImage(currentBatch[0].dataUrl, true, true);
             if (settings.autoSearch) performBatchSearch();
         }
@@ -1362,7 +1478,7 @@
             const controller = beginOperation('Extracting video frames...');
             try {
                 currentBatch = (await extractVideoFrames(file, Core.MAX_VIDEO_FRAMES, controller.signal))
-                    .map((frame, idx) => ({ id: `${file.name}-${idx}`, name: `${file.name} frame ${idx + 1}`, dataUrl: frame.dataUrl, timestamp: frame.timestamp }));
+                    .map((frame, idx) => ({ id: `${file.name}-${idx}`, name: `${file.name} frame ${idx + 1}`, dataUrl: frame.dataUrl, timestamp: frame.timestamp, metadata: { name: file.name, type: 'image/jpeg', size: file.size, width: frame.width, height: frame.height } }));
             } catch (error) {
                 showToast(error.name === 'AbortError' ? 'Video extraction cancelled.' : error.message, '⚠️', true);
                 currentBatch = [];
@@ -1372,6 +1488,8 @@
             if (currentBatch.length === 0) { showToast('Could not extract frames', '⚠️', true); return; }
             await dedupeCurrentBatch();
             renderBatch(0);
+            currentFileMetadata = currentBatch[0].metadata || currentFileMetadata;
+            renderFileMetadata();
             loadImage(currentBatch[0].dataUrl, true, true);
             if (settings.autoSearch) performBatchSearch();
         }
@@ -1422,7 +1540,7 @@
                                 video.onseeked = () => {
                                     clearTimeout(seekTimeout);
                                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                                    frames.push({ dataUrl: canvas.toDataURL('image/jpeg', 0.9), timestamp: point });
+                                frames.push({ dataUrl: canvas.toDataURL('image/jpeg', 0.9), timestamp: point, width: canvas.width, height: canvas.height });
                                     seekDone();
                                 };
                                 video.currentTime = point;
@@ -1467,6 +1585,8 @@
                 choose.textContent = 'Preview';
                 choose.addEventListener('click', () => {
                     renderBatch(idx);
+                    currentFileMetadata = currentBatch[idx].metadata || null;
+                    renderFileMetadata();
                     loadImage(currentBatch[idx].dataUrl, true, true);
                 });
                 const selection = document.createElement('label');
@@ -1745,6 +1865,8 @@
                 selectedEngines: activeEngines.map((eng) => ({ id: eng, name: SEARCH_ENGINES[eng]?.name || eng })),
                 hashes: lastHashes,
                 originalHashes,
+                localMetadata: currentFileMetadata,
+                provenance: currentProvenance,
                 preprocessing: lastPreprocessing,
                 batchCount: currentBatch.length,
                 dispatches: dispatches.map(({ target, ...dispatch }) => ({ ...dispatch, targetHost: new URL(target).host }))
@@ -1767,6 +1889,8 @@
             lastHashes = null;
             originalHashes = null;
             roiOriginalSource = '';
+            currentFileMetadata = null;
+            currentProvenance = { status: 'not-checked', detail: 'Load a local file to inspect provenance.' };
             lastPreprocessing = [];
             dispatches = [];
             previewImage.src = '';
@@ -1774,6 +1898,7 @@
             urlInput.value = '';
             imageInfo.textContent = 'Ready';
             document.getElementById('hashGrid').innerHTML = '';
+            renderFileMetadata();
             renderBatch();
             renderDispatchQueue();
         }
@@ -1860,6 +1985,35 @@
             document.getElementById('engineSelectionCount').textContent = `${activeEngines.length} selected`;
         }
 
+        function appendCustomEngineControls() {
+            const bar = document.querySelector('.engines-bar');
+            customEngineManifest.engines
+                .slice()
+                .sort((a, b) => a.order - b.order)
+                .forEach((record) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'engine-toggle';
+                    button.dataset.engine = record.id;
+                    button.setAttribute('aria-pressed', 'false');
+                    const dot = document.createElement('span');
+                    dot.className = 'engine-dot';
+                    const name = document.createElement('span');
+                    name.className = 'engine-name';
+                    name.textContent = record.displayName;
+                    const metadata = document.createElement('span');
+                    metadata.className = 'engine-meta';
+                    metadata.textContent = 'custom';
+                    button.append(dot, name, metadata);
+                    bar.append(button);
+                });
+            document.getElementById('customEngineSummary').textContent = customEngineManifest.engines.length
+                ? `${customEngineManifest.engines.length} custom engine${customEngineManifest.engines.length === 1 ? '' : 's'} installed.`
+                : 'No custom engines installed. Imports are data-only HTTPS templates.';
+            const backup = sessionStorage.getItem('rs_custom_engine_backup');
+            document.getElementById('undoEnginesBtn').hidden = !backup;
+        }
+
         document.addEventListener('keydown', (event) => {
             const panel = document.querySelector('.panel.open');
             if (!panel) return;
@@ -1882,6 +2036,8 @@
                 first.focus();
             }
         });
+
+        appendCustomEngineControls();
 
         // Engine toggles
         document.querySelectorAll('.engine-toggle').forEach(t => {
@@ -2043,6 +2199,51 @@
         document.getElementById('clearDiagnosticsBtn').addEventListener('click', () => {
             diagnostics = [];
             renderDiagnostics();
+        });
+        document.getElementById('importEnginesBtn').addEventListener('click', () => document.getElementById('engineManifestInput').click());
+        document.getElementById('engineManifestInput').addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+            if (file.size > 64 * 1024) {
+                showToast('Engine manifest exceeds the 64 KB limit.', '⚠️', true);
+                return;
+            }
+            try {
+                const next = Core.validateEngineManifest(await file.text());
+                const currentIds = new Set(customEngineManifest.engines.map((engine) => engine.id));
+                const nextIds = new Set(next.engines.map((engine) => engine.id));
+                const added = [...nextIds].filter((id) => !currentIds.has(id));
+                const removed = [...currentIds].filter((id) => !nextIds.has(id));
+                const preview = [
+                    `${next.engines.length} validated HTTPS engine${next.engines.length === 1 ? '' : 's'}.`,
+                    added.length ? `Add: ${added.join(', ')}` : 'Add: none',
+                    removed.length ? `Remove: ${removed.join(', ')}` : 'Remove: none',
+                    'No scripts or custom code will execute.'
+                ].join('\n');
+                if (!confirm(`${preview}\n\nApply this manifest?`)) return;
+                sessionStorage.setItem('rs_custom_engine_backup', JSON.stringify(customEngineManifest));
+                localStorage.setItem('rs_custom_engines', JSON.stringify(next));
+                location.reload();
+            } catch (error) {
+                showToast(`Engine import rejected: ${error.message}`, '⚠️', true);
+            }
+        });
+        document.getElementById('exportEnginesBtn').addEventListener('click', () => {
+            const blob = new Blob([JSON.stringify(customEngineManifest, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'imagexpert_engines.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        });
+        document.getElementById('undoEnginesBtn').addEventListener('click', () => {
+            const backup = sessionStorage.getItem('rs_custom_engine_backup');
+            if (!backup) return;
+            localStorage.setItem('rs_custom_engines', backup);
+            sessionStorage.removeItem('rs_custom_engine_backup');
+            location.reload();
         });
         document.getElementById('clearHistoryBtn').addEventListener('click', () => {
             const button = document.getElementById('clearHistoryBtn');

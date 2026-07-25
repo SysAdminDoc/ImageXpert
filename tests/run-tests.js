@@ -72,3 +72,31 @@ test('i18n resolves supported locales and falls back to English', () => {
     assert.equal(i18n.t('app.name', 'zz'), 'ImageXpert');
     assert.equal(i18n.t('missing.key'), 'missing.key');
 });
+
+test('custom engine manifests accept data-only HTTPS templates', () => {
+    const manifest = core.validateEngineManifest({
+        schemaVersion: 1,
+        engines: [{
+            id: 'example',
+            displayName: 'Example Search',
+            urlTemplate: 'https://example.com/search?url={url}',
+            manualUrl: 'https://example.com/upload',
+            capabilities: ['exact-match'],
+            consentClass: 'none',
+            order: 4
+        }]
+    });
+    assert.equal(manifest.engines[0].id, 'example');
+});
+
+test('custom engine manifests reject scripts and unsafe schemes', () => {
+    assert.throws(() => core.validateEngineManifest({
+        schemaVersion: 1,
+        engines: [{
+            id: 'unsafe',
+            displayName: 'Unsafe',
+            urlTemplate: 'javascript:{url}',
+            manualUrl: 'https://example.com'
+        }]
+    }), /HTTPS/);
+});

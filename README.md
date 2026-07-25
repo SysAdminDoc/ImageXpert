@@ -18,6 +18,10 @@ ImageXpert is a static reverse image search hub for fast attribution work. Drop 
 - PWA manifest and offline shell for installable use.
 - Versioned English UI dictionary with locale fallback; the independently
   distributed userscript keeps its existing translation table.
+- Data-only custom engine manifest import/export with HTTPS validation, preview,
+  and one-step rollback.
+- Local file facts and a no-upload C2PA adapter with explicit unsupported,
+  no-manifest, invalid-signature, and valid-signature states.
 
 ## Use
 

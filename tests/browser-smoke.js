@@ -173,6 +173,7 @@ async function main() {
                     blocked: afterUrl.dispatches.every(item => item.status === 'blocked'),
                     history: afterUrl.history.length,
                     localLoaded,
+                    metadata: document.getElementById('fileMetadata').innerText,
                     videoFailure,
                     exported: clicked.some(name => String(name).includes('imagexpert_case_')),
                     uploadFailure: finalState.diagnostics.some(event => event.phase === 'upload' && event.code !== 'ok')
@@ -185,6 +186,8 @@ async function main() {
             assert.equal(result.blocked, true);
             assert.ok(result.history >= 1);
             assert.equal(result.localLoaded, true);
+            assert.match(result.metadata, /Type[\s\S]*video\/mp4/);
+            assert.match(result.metadata, /C2PA provenance[\s\S]*unsupported/);
             assert.match(result.videoFailure, /decoded|readable|video|extract/i);
             assert.equal(result.exported, true);
             assert.equal(result.uploadFailure, true);

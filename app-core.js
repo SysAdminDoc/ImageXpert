@@ -111,6 +111,43 @@
         return { accepted, rejected };
     }
 
+    function validateEngineManifest(input) {
+        const manifest = typeof input === 'string' ? safeParse(input, null) : input;
+        if (!manifest || manifest.schemaVersion !== 1 || !Array.isArray(manifest.engines)) {
+            throw new Error('Engine manifest must use schemaVersion 1 and an engines array');
+        }
+        if (manifest.engines.length > 25) throw new Error('Engine manifest exceeds the 25-engine limit');
+        const ids = new Set();
+        const engines = manifest.engines.map((engine, index) => {
+            const id = String(engine?.id || '');
+            const displayName = String(engine?.displayName || '').trim();
+            const urlTemplate = String(engine?.urlTemplate || '');
+            const manualUrl = String(engine?.manualUrl || '');
+            if (!/^[a-z][a-z0-9_-]{1,31}$/.test(id)) throw new Error(`Engine ${index + 1} has an invalid id`);
+            if (ids.has(id)) throw new Error(`Duplicate engine id: ${id}`);
+            ids.add(id);
+            if (!displayName || displayName.length > 60) throw new Error(`Engine ${id} has an invalid display name`);
+            if ((urlTemplate.match(/\{url\}/g) || []).length !== 1) throw new Error(`Engine ${id} URL template must contain one {url}`);
+            const probe = urlTemplate.replace('{url}', encodeURIComponent('https://example.com/image.jpg'));
+            if (!isHttpUrl(probe) || !probe.startsWith('https://')) throw new Error(`Engine ${id} URL template must resolve to HTTPS`);
+            if (!isHttpUrl(manualUrl) || !manualUrl.startsWith('https://')) throw new Error(`Engine ${id} manual URL must use HTTPS`);
+            const capabilities = Array.isArray(engine.capabilities)
+                ? engine.capabilities.map(String).filter((value) => /^[a-z0-9-]{1,30}$/.test(value)).slice(0, 12)
+                : [];
+            const consentClass = ['none', 'biometric', 'external-upload'].includes(engine.consentClass) ? engine.consentClass : 'none';
+            return {
+                id,
+                displayName,
+                urlTemplate,
+                manualUrl,
+                capabilities,
+                consentClass,
+                order: Number.isFinite(engine.order) ? Math.max(0, Math.min(999, Math.round(engine.order))) : index
+            };
+        });
+        return { schemaVersion: 1, engines };
+    }
+
     return Object.freeze({
         STORAGE_VERSION,
         MAX_HISTORY,
@@ -126,6 +163,7 @@
         boundedThumbnail,
         normalizeHistory,
         migrateState,
-        validateFiles
+        validateFiles,
+        validateEngineManifest
     });
 }));
