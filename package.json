@@ -1,0 +1,10 @@
+{
+  "name": "imagexpert",
+  "version": "1.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/run-tests.js && node scripts/release-check.js && node tests/browser-smoke.js",
+    "release:check": "node scripts/release-check.js",
+    "package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1"
+  }
+}

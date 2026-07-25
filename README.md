@@ -32,6 +32,17 @@ for older bookmarks.
 
 Then visit `http://127.0.0.1:8765/`.
 
+## Validate
+
+Run the dependency-free unit, release-contract, desktop browser, and exact
+390px/320px mobile smoke suite:
+
+```bash
+npm test
+```
+
+Build the unsigned site and Chrome companion archives with `npm run package`.
+
 ## Companion Extension
 
 Load `extension/` as an unpacked Chrome extension. Right-click a web image and choose `Search with ImageXpert`.

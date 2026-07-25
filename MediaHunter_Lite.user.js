@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         MediaHunter Lite
-// @namespace    http://tampermonkey.net/
+// @namespace    https://tampermonkey.net/
 // @version      1.1.0
 // @updateURL      https://raw.githubusercontent.com/SysAdminDoc/ImageXpert/main/MediaHunter_Lite.user.js
 // @downloadURL    https://raw.githubusercontent.com/SysAdminDoc/ImageXpert/main/MediaHunter_Lite.user.js
@@ -8,7 +8,6 @@
 // @author       Debloated Fork
 // @icon         https://img.icons8.com/?size=100&id=zS0X1cipar3P&format=png&color=000000
 // @match        https://*/*
-// @match        http://*/*
 // @grant        GM_addStyle
 // @grant        GM_openInTab
 // @grant        GM_xmlhttpRequest

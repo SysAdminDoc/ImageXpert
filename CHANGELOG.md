@@ -19,6 +19,7 @@ All notable changes to ImageXpert will be documented in this file.
 - Constrained offline caching to a versioned same-origin shell with explicit offline behavior.
 - Added a versioned UI dictionary with English fallback and locale-aware dates.
 - Added a collapsible mobile engine picker, sticky privacy state, and camera input.
+- Added exact 390px/320px browser checks for overflow, collapsed engines, privacy visibility, camera access, and touch target size.
 
 ## [v1.1.0] - 2026-06-27
 
