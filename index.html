@@ -191,7 +191,7 @@
         .drop-zone.dragover { transform: scale(1.01); }
         .drop-zone.has-image { border-style: solid; border-color: var(--accent); }
 
-        .drop-content { text-align: center; padding: 40px; }
+        .drop-content { width: 100%; max-width: 100%; min-width: 0; text-align: center; padding: 40px; }
         .drop-icon { font-size: 80px; margin-bottom: 20px; opacity: 0.6; }
         .drop-title { font-size: 1.8rem; font-weight: 700; margin-bottom: 12px; }
         .drop-subtitle { color: var(--text-dim); font-size: 1rem; margin-bottom: 30px; line-height: 1.6; }
@@ -585,6 +585,8 @@
         }
 
         .info-box strong { color: var(--accent); }
+        .engine-picker > summary { display: none; }
+        .camera-btn { display: none; border: 0; color: inherit; font: inherit; }
         button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
             outline: 3px solid #ffffff;
             outline-offset: 3px;
@@ -612,14 +614,20 @@
         .dispatch-status[data-status="opened"] { color: var(--accent); }
         .dispatch-status[data-status="blocked"], .dispatch-status[data-status="failed"], .dispatch-status[data-status="consent-required"] { color: #ff8c8c; }
         #cancelOperationBtn { margin-left: 10px; }
+        .diagnostics-list { max-height: 180px; overflow: auto; font: 0.72rem/1.5 monospace; color: var(--text-dim); white-space: pre-wrap; }
         .roi-canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
         .roi-canvas[hidden] { display: none; }
         .context-input { min-width: 180px; flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
 
         @media (max-width: 768px) {
-            .header { padding: 15px 20px; flex-wrap: wrap; gap: 15px; }
-            .main { padding: 20px; }
-            .drop-title { font-size: 1.4rem; }
+            body { overflow-x: hidden; }
+            .header { padding: 14px 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+            .header-actions { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .header-btn { min-width: 0; justify-content: center; padding-inline: 8px; }
+            .main { padding: 12px; min-width: 0; }
+            .drop-content { padding: 28px 12px; }
+            .drop-title { font-size: 1.25rem; text-align: center; overflow-wrap: anywhere; }
+            .drop-subtitle { max-width: 100%; padding-inline: 8px; overflow-wrap: anywhere; }
             .drop-methods { flex-direction: column; align-items: center; }
             .panel { width: 100%; }
             .url-bar { flex-direction: column; }
@@ -629,9 +637,17 @@
             .privacy-banner, .dispatch-header { align-items: stretch; flex-direction: column; }
             .dispatch-item { grid-template-columns: 1fr auto; }
             .dispatch-status { grid-column: 1 / -1; }
+            .engine-picker > summary { display: flex; justify-content: space-between; padding: 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+            .engine-picker:not([open]) .engines-bar { display: none; }
+            .engines-bar { max-height: 230px; overflow-y: auto; margin-top: 8px; }
+            .privacy-banner { position: sticky; bottom: 8px; z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+            .camera-btn { display: flex; }
+            .drop-zone { min-height: 330px; }
+            .privacy-banner { max-width: 100%; overflow: hidden; }
+            .privacy-banner p { overflow-wrap: anywhere; }
         }
 
-        #fileInput { display: none; }
+        #fileInput, #cameraInput { display: none; }
     </style>
 </head>
 <body>
@@ -641,12 +657,14 @@
             <h1>Image<span>Xpert</span></h1>
         </div>
         <div class="header-actions">
-            <button class="header-btn" id="historyBtn"><span>📂</span> History</button>
-            <button class="header-btn" id="helpBtn"><span>❓</span> How it works</button>
+            <button class="header-btn" id="historyBtn" data-i18n="nav.history">📂 History</button>
+            <button class="header-btn" id="helpBtn" data-i18n="nav.help">❓ How it works</button>
         </div>
     </header>
 
     <main class="main">
+        <details class="engine-picker" id="enginePicker" open>
+        <summary><span data-i18n="engines.summary">Search engines</span> <span id="engineSelectionCount">2 selected</span></summary>
         <div class="engines-bar">
             <button type="button" class="engine-toggle active" data-engine="google" aria-pressed="true"><span class="engine-dot"></span><span class="engine-name">Google Lens</span><span class="engine-meta">URL</span></button>
             <button type="button" class="engine-toggle active" data-engine="yandex" aria-pressed="true"><span class="engine-dot"></span><span class="engine-name">Yandex</span><span class="engine-meta">URL</span></button>
@@ -661,19 +679,18 @@
             <button type="button" class="engine-toggle" data-engine="iqdb_sankaku" aria-pressed="false"><span class="engine-dot"></span><span class="engine-name">IQDB Sankaku</span><span class="engine-meta">URL</span></button>
             <button type="button" class="engine-toggle" data-engine="pimeyes" aria-pressed="false"><span class="engine-dot"></span><span class="engine-name">PimEyes</span><span class="engine-meta">Consent</span></button>
         </div>
+        </details>
 
         <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Choose image or video files">
             <div class="drop-content">
                 <div class="drop-icon">📷</div>
-                <h2 class="drop-title">Drop image — search starts automatically</h2>
-                <p class="drop-subtitle">
-                    Image uploads to temporary host, then opens in all selected engines.<br>
-                    <strong>Zero clicks needed.</strong> <span style="color: var(--text-dim); font-size: 0.85rem;">(Allow popups if prompted)</span>
-                </p>
+                <h2 class="drop-title" data-i18n="drop.title">Drop an image or short video</h2>
+                <p class="drop-subtitle" data-i18n="drop.subtitle">Local files stay on this device unless you explicitly enable a 1-hour external upload.</p>
                 <div class="drop-methods">
                     <div class="drop-method"><span>📁</span> <strong>Drop</strong> a file</div>
                     <div class="drop-method"><span>📋</span> <strong>Paste</strong> an image</div>
                     <div class="drop-method"><span>🖱️</span> <strong>Click</strong> to browse</div>
+                    <button type="button" class="drop-method camera-btn" id="cameraBtn"><span>📱</span> <strong>Camera</strong></button>
                 </div>
             </div>
 
@@ -709,12 +726,12 @@
         </div>
 
         <div class="url-bar">
-            <input type="text" class="url-input" id="urlInput" placeholder="Or paste an image URL here...">
-            <button class="url-btn" id="urlSearchBtn">🔍 Search URL</button>
+            <input type="text" class="url-input" id="urlInput" placeholder="Or paste an image URL here..." data-i18n-placeholder="url.placeholder">
+            <button class="url-btn" id="urlSearchBtn" data-i18n="url.search">🔍 Search URL</button>
         </div>
         <div class="privacy-banner" id="privacyBanner">
             <div>
-                <strong id="privacyModeLabel">Local-only mode</strong>
+                <strong id="privacyModeLabel" data-i18n="privacy.local">Local-only mode</strong>
                 <p id="privacyModeDescription">Local files stay on this device. Engines open their manual upload pages.</p>
             </div>
             <button class="action-btn" id="privacyModeBtn" type="button">Change privacy mode</button>
@@ -722,7 +739,7 @@
         <section class="dispatch-panel" id="dispatchPanel" aria-labelledby="dispatchHeading" hidden>
             <div class="dispatch-header">
                 <div>
-                    <strong id="dispatchHeading">Engine dispatch queue</strong>
+                    <strong id="dispatchHeading" data-i18n="dispatch.heading">Engine dispatch queue</strong>
                     <div class="dispatch-status" id="dispatchSummary">Nothing queued</div>
                 </div>
                 <button class="action-btn primary" id="openQueuedBtn" type="button">Open queued engines</button>
@@ -745,7 +762,7 @@
 
     <div class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="settingsHeading" aria-hidden="true">
         <div class="panel-header">
-            <h2 id="settingsHeading">📂 History & Settings</h2>
+            <h2 id="settingsHeading" data-i18n="settings.heading">📂 History & Settings</h2>
             <button class="panel-close" id="panelClose" aria-label="Close history and settings">✕</button>
         </div>
         <div class="panel-content">
@@ -753,29 +770,39 @@
                 <div class="settings-section-title">⚙️ Settings</div>
                 <div class="settings-row">
                     <div>
-                        <div class="settings-label">Auto-search on load</div>
+                        <div class="settings-label" data-i18n="settings.auto">Auto-search on load</div>
                         <div class="settings-desc">Immediately search when image loads</div>
                     </div>
                     <button type="button" class="toggle-switch on" id="autoSearchToggle" role="switch" aria-label="Auto-search on load" aria-checked="true"></button>
                 </div>
                 <div class="settings-row">
                     <div>
-                        <div class="settings-label">Save history</div>
+                        <div class="settings-label" data-i18n="settings.history">Save history</div>
                         <div class="settings-desc">Remember searched images</div>
                     </div>
                     <button type="button" class="toggle-switch on" id="saveHistoryToggle" role="switch" aria-label="Save history" aria-checked="true"></button>
                 </div>
                 <div class="settings-row">
                     <div>
-                        <div class="settings-label">No-upload dispatch</div>
+                        <div class="settings-label" data-i18n="settings.noUpload">No-upload dispatch</div>
                         <div class="settings-desc">URL images search directly; local files open manual engine upload pages</div>
                     </div>
                     <button type="button" class="toggle-switch" id="noUploadToggle" role="switch" aria-label="No-upload dispatch" aria-checked="false"></button>
                 </div>
             </div>
             <div class="settings-section">
-                <div class="settings-section-title">📂 Search History</div>
+                <div class="settings-section-title" data-i18n="history.heading">📂 Search History</div>
                 <div class="history-list" id="historyList"><div class="history-empty">No searches yet</div></div>
+            </div>
+            <div class="settings-section">
+                <div class="settings-section-title" data-i18n="diagnostics.heading">🩺 Diagnostics</div>
+                <p class="settings-desc">Redacted events exclude image bytes, source URLs, cookies, and page content.</p>
+                <div class="history-actions">
+                    <button class="history-btn" type="button" id="copyDiagnosticsBtn">Copy support report</button>
+                    <button class="history-btn" type="button" id="exportDiagnosticsBtn">Export JSON</button>
+                    <button class="history-btn" type="button" id="clearDiagnosticsBtn">Clear diagnostics</button>
+                </div>
+                <div class="diagnostics-list" id="diagnosticsList">No diagnostic events.</div>
             </div>
         </div>
         <div class="panel-footer">
@@ -785,7 +812,7 @@
 
     <div class="panel" id="helpPanel" role="dialog" aria-modal="true" aria-labelledby="helpHeading" aria-hidden="true">
         <div class="panel-header">
-            <h2 id="helpHeading">❓ How it works</h2>
+            <h2 id="helpHeading" data-i18n="help.heading">❓ How it works</h2>
             <button class="panel-close" id="helpClose" aria-label="Close help">✕</button>
         </div>
         <div class="panel-content" style="padding: 20px;">
@@ -833,10 +860,15 @@
     </div>
 
     <input type="file" id="fileInput" accept="image/*,video/*" multiple>
+    <input type="file" id="cameraInput" accept="image/*" capture="environment">
 
     <script src="./app-core.js"></script>
+    <script src="./i18n.js"></script>
     <script>
         const Core = window.ImageXpertCore;
+        const I18n = window.ImageXpertI18n;
+        const activeLocale = I18n.apply(document, navigator.language);
+        const APP_VERSION = '1.1.0';
         const SEARCH_ENGINES = {
             google: { name: 'Google Lens', host: 'lens.google.com', input: 'url-or-manual', capabilities: ['general', 'products'], maintenance: 'active', manualUrl: 'https://lens.google.com/', url: (u) => `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(u)}` },
             yandex: { name: 'Yandex', host: 'yandex.com', input: 'url-or-manual', capabilities: ['general', 'similar'], maintenance: 'active', manualUrl: 'https://yandex.com/images/', url: (u) => `https://yandex.com/images/search?rpt=imageview&url=${encodeURIComponent(u)}` },
@@ -865,6 +897,7 @@
         let dispatches = [];
         let activeOperation = null;
         let lastFocusedElement = null;
+        let diagnostics = [];
         const migratedState = Core.migrateState({
             version: localStorage.getItem('rs_schema_version'),
             settings: localStorage.getItem('rs_settings'),
@@ -895,6 +928,53 @@
             t.classList.toggle('error', err);
             t.classList.add('show');
             setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        function diagnosticCode(error) {
+            if (!error) return 'ok';
+            if (error.name === 'AbortError') return 'aborted';
+            if (/timeout/i.test(error.message || '')) return 'timeout';
+            if (/popup|blocked/i.test(error.message || '')) return 'popup-blocked';
+            if (/storage|quota/i.test(error.message || '')) return 'storage';
+            return String(error.name || 'error').toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 40);
+        }
+
+        function recordDiagnostic({ engine = '', phase, startedAt = performance.now(), error = null, detail = '' }) {
+            diagnostics.push({
+                timestamp: new Date().toISOString(),
+                version: APP_VERSION,
+                engine,
+                phase,
+                latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
+                code: diagnosticCode(error),
+                detail: String(detail).replace(/https?:\/\/\S+/gi, '[url]').slice(0, 120)
+            });
+            diagnostics = diagnostics.slice(-100);
+            renderDiagnostics();
+        }
+
+        function supportReport() {
+            return {
+                app: 'ImageXpert',
+                version: APP_VERSION,
+                generatedAt: new Date().toISOString(),
+                capabilities: {
+                    online: navigator.onLine,
+                    serviceWorker: 'serviceWorker' in navigator,
+                    crypto: Boolean(globalThis.crypto?.subtle),
+                    clipboard: Boolean(navigator.clipboard),
+                    userAgent: navigator.userAgent.replace(/\([^)]*\)/g, '(redacted)')
+                },
+                events: diagnostics
+            };
+        }
+
+        function renderDiagnostics() {
+            const list = document.getElementById('diagnosticsList');
+            if (!list) return;
+            list.textContent = diagnostics.length
+                ? diagnostics.slice(-20).map((event) => `${event.timestamp} ${event.phase} ${event.engine || '-'} ${event.code} ${event.latencyMs}ms ${event.detail}`).join('\n')
+                : 'No diagnostic events.';
         }
 
         function showStatus(msg, prog = false) {
@@ -929,6 +1009,7 @@
                 localStorage.setItem('rs_settings', JSON.stringify(settings));
                 localStorage.setItem('rs_engines', JSON.stringify(activeEngines));
             } catch (error) {
+                recordDiagnostic({ phase: 'storage-settings', error });
                 showToast('Settings could not be saved. Browser storage may be full.', '⚠️', true);
             }
         }
@@ -940,11 +1021,13 @@
                 localStorage.setItem('rs_history', JSON.stringify(history));
                 if (migratedState.migratedLegacy) localStorage.removeItem('imagexpert_gallery');
             } catch (error) {
+                recordDiagnostic({ phase: 'storage-history', error });
                 history = history.map((item) => ({ ...item, thumb: '' }));
                 try {
                     localStorage.setItem('rs_history', JSON.stringify(history));
                     showToast('History thumbnails removed because browser storage is full.', '⚠️', true);
                 } catch {
+                    recordDiagnostic({ phase: 'storage-history-recovery', error: new Error('Storage unavailable') });
                     settings.saveHistory = false;
                     showToast('History disabled because browser storage is unavailable.', '⚠️', true);
                 }
@@ -953,7 +1036,7 @@
 
         function syncPrivacyUI() {
             const localOnly = settings.noUpload;
-            document.getElementById('privacyModeLabel').textContent = localOnly ? 'Local-only mode' : 'External upload enabled';
+            document.getElementById('privacyModeLabel').textContent = I18n.t(localOnly ? 'privacy.local' : 'privacy.external', activeLocale);
             document.getElementById('privacyModeDescription').textContent = localOnly
                 ? 'Local files stay on this device. Engines open their manual upload pages.'
                 : 'Local files upload to litterbox.catbox.moe for 1 hour before engine dispatch.';
@@ -978,6 +1061,7 @@
         }
 
         async function uploadToLitterbox(file) {
+            const startedAt = performance.now();
             const controller = beginOperation('Uploading to litterbox.catbox.moe (1-hour retention)...');
             const timeout = setTimeout(() => controller.abort('timeout'), 30_000);
             const formData = new FormData();
@@ -997,9 +1081,13 @@
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const url = (await res.text()).trim();
                 updateProgress(100);
-                if (Core.isHttpUrl(url)) return url;
+                if (Core.isHttpUrl(url)) {
+                    recordDiagnostic({ phase: 'upload', startedAt, detail: 'litterbox 1h' });
+                    return url;
+                }
                 throw new Error('Host returned an invalid URL');
             } catch (error) {
+                recordDiagnostic({ phase: 'upload', startedAt, error, detail: controller.signal.aborted ? String(controller.signal.reason) : 'litterbox' });
                 const message = controller.signal.aborted
                     ? (controller.signal.reason === 'timeout' ? 'Upload timed out after 30 seconds.' : 'Upload cancelled.')
                     : `Upload failed: ${error.message}`;
@@ -1055,11 +1143,13 @@
         }
 
         function openDispatch(dispatch) {
+            const startedAt = performance.now();
             const engine = SEARCH_ENGINES[dispatch.engineId];
             if (!engine || !Core.isHttpUrl(dispatch.target)) {
                 dispatch.status = 'failed';
                 dispatch.error = 'Unsafe or missing engine URL';
                 dispatch.timestamp = new Date().toISOString();
+                recordDiagnostic({ engine: dispatch.engineId, phase: 'dispatch', startedAt, error: new Error(dispatch.error) });
                 renderDispatchQueue();
                 return;
             }
@@ -1071,9 +1161,11 @@
                 const opened = window.open(dispatch.target, '_blank', 'noopener,noreferrer');
                 dispatch.status = opened ? 'opened' : 'blocked';
                 dispatch.error = opened ? '' : 'Browser blocked the tab. Retry this engine after allowing popups.';
+                recordDiagnostic({ engine: dispatch.engineId, phase: 'dispatch', startedAt, error: opened ? null : new Error(dispatch.error), detail: dispatch.status });
             } catch (error) {
                 dispatch.status = 'failed';
                 dispatch.error = error.message;
+                recordDiagnostic({ engine: dispatch.engineId, phase: 'dispatch', startedAt, error });
             }
             dispatch.timestamp = new Date().toISOString();
             renderDispatchQueue();
@@ -1738,7 +1830,7 @@
             if (diff < 60000) return 'Just now';
             if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
             if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-            return new Date(ts).toLocaleDateString();
+            return new Date(ts).toLocaleDateString(activeLocale);
         }
 
         window.searchFromHistory = (i) => { const item = history[i]; closePanel(); if (item.thumb.startsWith('data:')) loadImage(item.thumb, true); else { urlInput.value = item.url; loadImage(item.url, false); } };
@@ -1763,6 +1855,10 @@
             document.getElementById('overlay').classList.remove('show');
             lastFocusedElement?.focus?.();
             lastFocusedElement = null;
+        }
+
+        function updateEngineSelectionCount() {
+            document.getElementById('engineSelectionCount').textContent = `${activeEngines.length} selected`;
         }
 
         document.addEventListener('keydown', (event) => {
@@ -1806,6 +1902,7 @@
                 t.setAttribute('aria-pressed', String(t.classList.contains('active')));
                 if (t.classList.contains('active')) { if (!activeEngines.includes(eng)) activeEngines.push(eng); }
                 else activeEngines = activeEngines.filter(e => e !== eng);
+                updateEngineSelectionCount();
                 saveSettings();
             });
         });
@@ -1832,6 +1929,13 @@
         });
 
         fileInput.addEventListener('change', (e) => { if (e.target.files[0]) loadFromFiles(e.target.files); });
+        document.getElementById('cameraBtn').addEventListener('click', (event) => {
+            event.stopPropagation();
+            document.getElementById('cameraInput').click();
+        });
+        document.getElementById('cameraInput').addEventListener('change', (event) => {
+            if (event.target.files[0]) loadFromFile(event.target.files[0]);
+        });
 
         // Global paste
         document.addEventListener('paste', (e) => {
@@ -1924,6 +2028,23 @@
         document.getElementById('panelClose').addEventListener('click', closePanel);
         document.getElementById('helpClose').addEventListener('click', closePanel);
         document.getElementById('overlay').addEventListener('click', closePanel);
+        document.getElementById('copyDiagnosticsBtn').addEventListener('click', async () => {
+            await navigator.clipboard.writeText(JSON.stringify(supportReport(), null, 2));
+            showToast('Redacted support report copied.');
+        });
+        document.getElementById('exportDiagnosticsBtn').addEventListener('click', () => {
+            const blob = new Blob([JSON.stringify(supportReport(), null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `imagexpert_diagnostics_${Date.now()}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        });
+        document.getElementById('clearDiagnosticsBtn').addEventListener('click', () => {
+            diagnostics = [];
+            renderDiagnostics();
+        });
         document.getElementById('clearHistoryBtn').addEventListener('click', () => {
             const button = document.getElementById('clearHistoryBtn');
             if (historyUndo) {
@@ -1961,6 +2082,8 @@
         document.getElementById('autoSearchToggle').setAttribute('aria-checked', String(settings.autoSearch));
         document.getElementById('saveHistoryToggle').setAttribute('aria-checked', String(settings.saveHistory));
         syncPrivacyUI();
+        updateEngineSelectionCount();
+        if (matchMedia('(max-width: 768px)').matches) document.getElementById('enginePicker').removeAttribute('open');
         saveSettings();
         saveHistoryData();
         renderHistory();
@@ -1972,8 +2095,20 @@
             loadFromUrl(prefillImage);
         }
 
+        window.addEventListener('offline', () => {
+            recordDiagnostic({ phase: 'network', error: new Error('Offline'), detail: 'Local analysis remains available; external dispatch is unavailable.' });
+            showToast('Offline: local analysis works, but uploads and engine dispatch may fail.', '⚠️', true);
+        });
+        window.addEventListener('online', () => recordDiagnostic({ phase: 'network', detail: 'online' }));
+
         if ('serviceWorker' in navigator && ['https:', 'http:'].includes(location.protocol)) {
-            navigator.serviceWorker.register('./sw.js').catch((err) => console.warn('Service worker registration failed:', err));
+            const startedAt = performance.now();
+            navigator.serviceWorker.register('./sw.js')
+                .then(() => recordDiagnostic({ phase: 'service-worker', startedAt, detail: 'registered' }))
+                .catch((error) => {
+                    recordDiagnostic({ phase: 'service-worker', startedAt, error });
+                    showToast('Offline shell registration failed. Online use is unaffected.', '⚠️', true);
+                });
         }
     </script>
 </body>

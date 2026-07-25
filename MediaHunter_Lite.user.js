@@ -57,6 +57,20 @@
 
     const IMAGEXPERT_URL = 'https://sysadmindoc.github.io/ImageXpert/';
     let lastContextImageUrl = '';
+    const diagnostics = [];
+
+    function recordDiagnostic(phase, error) {
+        diagnostics.push({
+            timestamp: new Date().toISOString(),
+            version: '1.1.0',
+            phase,
+            code: String(error?.name || 'error').toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 40)
+        });
+        if (diagnostics.length > 100) diagnostics.shift();
+    }
+
+    window.addEventListener('error', (event) => recordDiagnostic('runtime', event.error || new Error('Script error')));
+    window.addEventListener('unhandledrejection', (event) => recordDiagnostic('promise', event.reason instanceof Error ? event.reason : new Error('Rejected promise')));
 
     const state = {
         isOpen: false,
@@ -167,6 +181,15 @@
     GM_registerMenuCommand('Toggle MediaHunter Bar', toggleBar);
     GM_registerMenuCommand('Hide MediaHunter Interface', toggleMasterVisibility);
     GM_registerMenuCommand('Search last image with ImageXpert', () => openImageXpertFor(lastContextImageUrl));
+    GM_registerMenuCommand('Copy redacted MediaHunter diagnostics', () => {
+        GM_setClipboard(JSON.stringify({
+            app: 'MediaHunter Lite',
+            version: '1.1.0',
+            generatedAt: new Date().toISOString(),
+            events: diagnostics
+        }, null, 2));
+        notify('Redacted diagnostics copied');
+    });
 
     function toggleMasterVisibility() {
         state.isVisible = !state.isVisible;

@@ -16,6 +16,8 @@ ImageXpert is a static reverse image search hub for fast attribution work. Drop 
   per-engine dispatch queue.
 - Tampermonkey userscript and Chrome MV3 companion extension for right-click image handoff.
 - PWA manifest and offline shell for installable use.
+- Versioned English UI dictionary with locale fallback; the independently
+  distributed userscript keeps its existing translation table.
 
 ## Use
 

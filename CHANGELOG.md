@@ -15,6 +15,10 @@ All notable changes to ImageXpert will be documented in this file.
 - Added engine capability, host, maintenance, consent, and text-context metadata to dispatch records.
 - Added hash deduplication, stable source IDs, frame timestamps, inclusion review, and per-item retry/cancel states to batch work.
 - Added drag-to-select region cropping with original-hash retention and optional Bing text context.
+- Added redacted app and userscript diagnostics with copy/export support reports.
+- Constrained offline caching to a versioned same-origin shell with explicit offline behavior.
+- Added a versioned UI dictionary with English fallback and locale-aware dates.
+- Added a collapsible mobile engine picker, sticky privacy state, and camera input.
 
 ## [v1.1.0] - 2026-06-27
 

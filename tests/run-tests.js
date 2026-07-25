@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const core = require('../app-core.js');
+const i18n = require('../i18n.js');
 
 function test(name, fn) {
     try {
@@ -63,4 +64,11 @@ test('file validation reports every discarded input', () => {
     assert.equal(result.rejected.length, 3);
     assert.match(result.rejected[0].reason, /25 MB/);
     assert.match(result.rejected[2].reason, /Maximum 10/);
+});
+
+test('i18n resolves supported locales and falls back to English', () => {
+    assert.equal(i18n.resolveLocale('en-US'), 'en');
+    assert.equal(i18n.resolveLocale('zz-ZZ'), 'en');
+    assert.equal(i18n.t('app.name', 'zz'), 'ImageXpert');
+    assert.equal(i18n.t('missing.key'), 'missing.key');
 });
