@@ -12,6 +12,9 @@ All notable changes to ImageXpert will be documented in this file.
 - Replaced remote and persisted-value HTML interpolation with validated DOM construction.
 - Added keyboard-semantic engine, intake, and settings controls plus focus-contained dialogs and live status announcements.
 - Preserved native page context menus in the userscript and added a restrictive extension-page CSP.
+- Added engine capability, host, maintenance, consent, and text-context metadata to dispatch records.
+- Added hash deduplication, stable source IDs, frame timestamps, inclusion review, and per-item retry/cancel states to batch work.
+- Added drag-to-select region cropping with original-hash retention and optional Bing text context.
 
 ## [v1.1.0] - 2026-06-27
 

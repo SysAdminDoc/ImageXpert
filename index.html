@@ -217,6 +217,7 @@
 
         .preview-image-wrap {
             flex: 1;
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -611,6 +612,9 @@
         .dispatch-status[data-status="opened"] { color: var(--accent); }
         .dispatch-status[data-status="blocked"], .dispatch-status[data-status="failed"], .dispatch-status[data-status="consent-required"] { color: #ff8c8c; }
         #cancelOperationBtn { margin-left: 10px; }
+        .roi-canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+        .roi-canvas[hidden] { display: none; }
+        .context-input { min-width: 180px; flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); }
 
         @media (max-width: 768px) {
             .header { padding: 15px 20px; flex-wrap: wrap; gap: 15px; }
@@ -676,6 +680,7 @@
             <div class="preview-container">
                 <div class="preview-image-wrap">
                     <img class="preview-image" id="previewImage" alt="Selected image preview">
+                    <canvas class="roi-canvas" id="roiCanvas" aria-label="Drag to select an image region" hidden></canvas>
                 </div>
                 <div class="preview-actions">
                     <div class="preview-info"><span id="imageInfo">Ready</span></div>
@@ -693,6 +698,9 @@
                         <button class="action-btn" id="rotateBtn">Rotate 90</button>
                         <button class="action-btn" id="cropBtn">Center Crop</button>
                         <button class="action-btn" id="trimBtn">Trim Bottom Strip</button>
+                        <button class="action-btn" id="roiBtn">Select Region</button>
+                        <button class="action-btn" id="roiResetBtn" hidden>Reset Region</button>
+                        <input class="context-input" id="textContextInput" type="text" maxlength="120" placeholder="Optional Bing text context">
                     </div>
                     <div class="hash-grid" id="hashGrid"></div>
                     <div class="batch-strip" id="batchStrip"></div>
@@ -830,18 +838,18 @@
     <script>
         const Core = window.ImageXpertCore;
         const SEARCH_ENGINES = {
-            google: { name: 'Google Lens', manualUrl: 'https://lens.google.com/', url: (u) => `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(u)}` },
-            yandex: { name: 'Yandex', manualUrl: 'https://yandex.com/images/', url: (u) => `https://yandex.com/images/search?rpt=imageview&url=${encodeURIComponent(u)}` },
-            bing: { name: 'Bing', manualUrl: 'https://www.bing.com/images/search?form=HDRSC3', url: (u) => `https://www.bing.com/images/search?view=detailv2&iss=sbi&form=SBIVSP&sbisrc=UrlPaste&q=imgurl:${encodeURIComponent(u)}` },
-            tineye: { name: 'TinEye', manualUrl: 'https://tineye.com/', url: (u) => `https://tineye.com/search?url=${encodeURIComponent(u)}` },
-            saucenao: { name: 'SauceNAO', manualUrl: 'https://saucenao.com/', url: (u) => `https://saucenao.com/search.php?url=${encodeURIComponent(u)}` },
-            ascii2d: { name: 'ASCII2D', manualUrl: 'https://ascii2d.net/', url: (u) => `https://ascii2d.net/search/url/${encodeURIComponent(u)}` },
-            tracemoe: { name: 'TraceMoe', manualUrl: 'https://trace.moe/', url: (u) => `https://trace.moe/?url=${encodeURIComponent(u)}` },
-            iqdb: { name: 'IQDB', manualUrl: 'https://iqdb.org/', url: (u) => `https://iqdb.org/?url=${encodeURIComponent(u)}` },
-            iqdb_danbooru: { name: 'IQDB Danbooru', manualUrl: 'https://danbooru.iqdb.org/', url: (u) => `https://danbooru.iqdb.org/?url=${encodeURIComponent(u)}` },
-            iqdb_gelbooru: { name: 'IQDB Gelbooru', manualUrl: 'https://gelbooru.iqdb.org/', url: (u) => `https://gelbooru.iqdb.org/?url=${encodeURIComponent(u)}` },
-            iqdb_sankaku: { name: 'IQDB Sankaku', manualUrl: 'https://sankaku.iqdb.org/', url: (u) => `https://sankaku.iqdb.org/?url=${encodeURIComponent(u)}` },
-            pimeyes: { name: 'PimEyes', manualUrl: 'https://pimeyes.com/en', manualOnly: true, consentNotice: 'PimEyes is face search. Use only with consent.', url: () => 'https://pimeyes.com/en' }
+            google: { name: 'Google Lens', host: 'lens.google.com', input: 'url-or-manual', capabilities: ['general', 'products'], maintenance: 'active', manualUrl: 'https://lens.google.com/', url: (u) => `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(u)}` },
+            yandex: { name: 'Yandex', host: 'yandex.com', input: 'url-or-manual', capabilities: ['general', 'similar'], maintenance: 'active', manualUrl: 'https://yandex.com/images/', url: (u) => `https://yandex.com/images/search?rpt=imageview&url=${encodeURIComponent(u)}` },
+            bing: { name: 'Bing', host: 'bing.com', input: 'url-or-manual', capabilities: ['general', 'products', 'text-context'], maintenance: 'active', supportsText: true, manualUrl: 'https://www.bing.com/images/search?form=HDRSC3', url: (u, context = '') => `https://www.bing.com/images/search?view=detailv2&iss=sbi&form=SBIVSP&sbisrc=UrlPaste&q=${encodeURIComponent(`imgurl:${u}${context ? ` ${context}` : ''}`)}` },
+            tineye: { name: 'TinEye', host: 'tineye.com', input: 'url-or-manual', capabilities: ['exact-match'], maintenance: 'active', manualUrl: 'https://tineye.com/', url: (u) => `https://tineye.com/search?url=${encodeURIComponent(u)}` },
+            saucenao: { name: 'SauceNAO', host: 'saucenao.com', input: 'url-or-manual', capabilities: ['art-source'], maintenance: 'active', manualUrl: 'https://saucenao.com/', url: (u) => `https://saucenao.com/search.php?url=${encodeURIComponent(u)}` },
+            ascii2d: { name: 'ASCII2D', host: 'ascii2d.net', input: 'url-or-manual', capabilities: ['art-source'], maintenance: 'active', manualUrl: 'https://ascii2d.net/', url: (u) => `https://ascii2d.net/search/url/${encodeURIComponent(u)}` },
+            tracemoe: { name: 'TraceMoe', host: 'trace.moe', input: 'url-or-manual', capabilities: ['anime-frame'], maintenance: 'active', manualUrl: 'https://trace.moe/', url: (u) => `https://trace.moe/?url=${encodeURIComponent(u)}` },
+            iqdb: { name: 'IQDB', host: 'iqdb.org', input: 'url-or-manual', capabilities: ['art-similar'], maintenance: 'active', manualUrl: 'https://iqdb.org/', url: (u) => `https://iqdb.org/?url=${encodeURIComponent(u)}` },
+            iqdb_danbooru: { name: 'IQDB Danbooru', host: 'danbooru.iqdb.org', input: 'url-or-manual', capabilities: ['art-similar'], maintenance: 'active', manualUrl: 'https://danbooru.iqdb.org/', url: (u) => `https://danbooru.iqdb.org/?url=${encodeURIComponent(u)}` },
+            iqdb_gelbooru: { name: 'IQDB Gelbooru', host: 'gelbooru.iqdb.org', input: 'url-or-manual', capabilities: ['art-similar'], maintenance: 'active', manualUrl: 'https://gelbooru.iqdb.org/', url: (u) => `https://gelbooru.iqdb.org/?url=${encodeURIComponent(u)}` },
+            iqdb_sankaku: { name: 'IQDB Sankaku', host: 'sankaku.iqdb.org', input: 'url-or-manual', capabilities: ['art-similar'], maintenance: 'active', manualUrl: 'https://sankaku.iqdb.org/', url: (u) => `https://sankaku.iqdb.org/?url=${encodeURIComponent(u)}` },
+            pimeyes: { name: 'PimEyes', host: 'pimeyes.com', input: 'manual-only', capabilities: ['face-search'], maintenance: 'active', consentClass: 'biometric', manualUrl: 'https://pimeyes.com/en', manualOnly: true, consentNotice: 'PimEyes is face search. Use only with consent.', url: () => 'https://pimeyes.com/en' }
         };
 
         const DEFAULT_SETTINGS = { autoSearch: false, saveHistory: true, noUpload: true, externalUploadConsent: false };
@@ -851,6 +859,8 @@
         let hostedUrl = null;
         let currentBatch = [];
         let lastHashes = null;
+        let originalHashes = null;
+        let roiOriginalSource = '';
         let lastPreprocessing = [];
         let dispatches = [];
         let activeOperation = null;
@@ -1023,22 +1033,25 @@
             return `${engineId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         }
 
-        function queueSelectedEngines(searchUrl, manual = false, sourceId = 'single') {
-            dispatches = activeEngines.map((engineId) => {
+        function queueSelectedEngines(searchUrl, manual = false, sourceId = 'single', append = false) {
+            const context = document.getElementById('textContextInput').value.trim();
+            const queued = activeEngines.map((engineId) => {
                 const engine = SEARCH_ENGINES[engineId];
                 const consentRequired = Boolean(engine?.consentNotice);
+                const unavailable = engine?.maintenance !== 'active';
                 return {
                     id: makeDispatchId(engineId),
                     engineId,
                     sourceId,
-                    target: manual || engine.manualOnly ? engine.manualUrl : engine.url(searchUrl),
-                    status: consentRequired ? 'consent-required' : (manual || engine.manualOnly ? 'manual-only' : 'queued'),
+                    target: manual || engine.manualOnly ? engine.manualUrl : engine.url(searchUrl, engine.supportsText ? context : ''),
+                    status: unavailable ? 'failed' : consentRequired ? 'consent-required' : (manual || engine.manualOnly ? 'manual-only' : 'queued'),
                     timestamp: new Date().toISOString(),
-                    error: consentRequired ? engine.consentNotice : ''
+                    error: unavailable ? `Engine is ${engine.maintenance}` : consentRequired ? engine.consentNotice : (context && !engine.supportsText ? 'Text context unsupported; image-only query queued.' : '')
                 };
             });
+            dispatches = append ? [...dispatches, ...queued] : queued;
             renderDispatchQueue();
-            return dispatches;
+            return queued;
         }
 
         function openDispatch(dispatch) {
@@ -1108,14 +1121,14 @@
             renderHistory();
         }
 
-        async function performSearch(imageUrl, isLocal = false) {
+        async function performSearch(imageUrl, isLocal = false, options = {}) {
             if (activeEngines.length === 0) { showToast('Select at least one engine!', '⚠️', true); return; }
 
             let searchUrl = imageUrl;
 
             if (isLocal) {
                 if (settings.noUpload) {
-                    queueSelectedEngines(null, true);
+                    queueSelectedEngines(null, true, options.sourceId || 'single', options.appendDispatches);
                     showToast('Local file stayed on this device. Use the queue to open manual upload pages.', '!');
                     return;
                 }
@@ -1125,7 +1138,7 @@
                         settings.noUpload = true;
                         syncPrivacyUI();
                         saveSettings();
-                        queueSelectedEngines(null, true);
+                        queueSelectedEngines(null, true, options.sourceId || 'single', options.appendDispatches);
                         showToast('Upload cancelled. Manual engine pages are queued instead.', '!');
                         return;
                     }
@@ -1140,7 +1153,7 @@
                 imageInfo.textContent = `Hosted for 1 hour: ${uploaded.substring(0, 35)}…`;
             }
 
-            queueSelectedEngines(searchUrl, false);
+            queueSelectedEngines(searchUrl, false, options.sourceId || 'single', options.appendDispatches);
             showToast('Engines queued. Use Open queued engines to dispatch with a user gesture.');
             addHistoryRecord(searchUrl, currentImageData || searchUrl);
         }
@@ -1248,6 +1261,7 @@
             }
             updateProgress(100);
             if (currentBatch.length === 0) { showToast('No searchable frames or images found', '⚠️', true); return; }
+            await dedupeCurrentBatch();
             renderBatch(0);
             loadImage(currentBatch[0].dataUrl, true, true);
             if (settings.autoSearch) performBatchSearch();
@@ -1265,6 +1279,7 @@
                 endOperation(controller);
             }
             if (currentBatch.length === 0) { showToast('Could not extract frames', '⚠️', true); return; }
+            await dedupeCurrentBatch();
             renderBatch(0);
             loadImage(currentBatch[0].dataUrl, true, true);
             if (settings.autoSearch) performBatchSearch();
@@ -1344,36 +1359,94 @@
             if (currentBatch.length <= 1) return;
             currentBatch.forEach((item, idx) => {
                 if (!Core.isApprovedImageSource(item.dataUrl)) return;
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = `batch-item ${idx === activeIndex ? 'active' : ''}`;
-                button.dataset.batchIndex = String(idx);
+                if (typeof item.selected !== 'boolean') item.selected = true;
+                if (!item.status) item.status = 'ready';
+                const card = document.createElement('div');
+                card.className = `batch-item ${idx === activeIndex ? 'active' : ''}`;
+                card.dataset.batchIndex = String(idx);
                 const image = document.createElement('img');
                 image.src = item.dataUrl;
                 image.alt = '';
                 const label = document.createElement('span');
                 const time = Number.isFinite(item.timestamp) ? ` at ${item.timestamp.toFixed(1)}s` : '';
-                label.textContent = `${item.name}${time}`;
-                button.append(image, label);
-                button.addEventListener('click', () => {
+                label.textContent = `${item.name}${time} • ${item.status}`;
+                const choose = document.createElement('button');
+                choose.type = 'button';
+                choose.className = 'history-btn';
+                choose.textContent = 'Preview';
+                choose.addEventListener('click', () => {
                     renderBatch(idx);
                     loadImage(currentBatch[idx].dataUrl, true, true);
                 });
-                strip.append(button);
+                const selection = document.createElement('label');
+                selection.className = 'dispatch-status';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = item.selected;
+                checkbox.addEventListener('change', () => { item.selected = checkbox.checked; });
+                selection.append(checkbox, ' Include');
+                const retry = document.createElement('button');
+                retry.type = 'button';
+                retry.className = 'history-btn';
+                retry.textContent = item.status === 'processing' ? 'Cancel' : 'Retry';
+                retry.hidden = !['processing', 'failed', 'cancelled'].includes(item.status);
+                retry.addEventListener('click', async () => {
+                    if (item.status === 'processing') {
+                        activeOperation?.abort('user');
+                        item.status = 'cancelled';
+                        renderBatch(idx);
+                        return;
+                    }
+                    item.selected = true;
+                    item.status = 'retrying';
+                    renderBatch(idx);
+                    await performSearch(item.dataUrl, true, { sourceId: item.id, appendDispatches: true });
+                    item.status = 'queued';
+                    renderBatch(idx);
+                });
+                card.append(image, label, choose, selection, retry);
+                strip.append(card);
             });
+        }
+
+        async function dedupeCurrentBatch() {
+            const unique = [];
+            const seen = new Set();
+            let removed = 0;
+            for (const item of currentBatch) {
+                item.hash = item.hash || await sha256FromDataUrl(item.dataUrl);
+                if (seen.has(item.hash)) {
+                    removed += 1;
+                    continue;
+                }
+                seen.add(item.hash);
+                unique.push(item);
+            }
+            currentBatch = unique;
+            if (removed) showToast(`${removed} duplicate batch item${removed === 1 ? '' : 's'} removed.`, '↺');
         }
 
         async function performBatchSearch() {
             if (currentBatch.length === 0) return;
-            if (settings.noUpload) {
-                showToast('Batch no-upload keeps files local. Turn it off to dispatch frames.', '!', true);
+            dispatches = [];
+            const selected = currentBatch.filter((item) => item.selected !== false);
+            if (selected.length === 0) {
+                showToast('Select at least one batch item.', '⚠️', true);
                 return;
             }
-            for (let i = 0; i < currentBatch.length; i++) {
-                renderBatch(i);
-                loadImage(currentBatch[i].dataUrl, true, true);
-                await performSearch(currentBatch[i].dataUrl, true);
+            for (let i = 0; i < selected.length; i++) {
+                const item = selected[i];
+                item.status = 'processing';
+                renderBatch(currentBatch.indexOf(item));
+                try {
+                    await performSearch(item.dataUrl, true, { sourceId: item.id, appendDispatches: true });
+                    item.status = 'queued';
+                } catch (error) {
+                    item.status = error.name === 'AbortError' ? 'cancelled' : 'failed';
+                }
+                renderBatch(currentBatch.indexOf(item));
             }
+            showToast(`${selected.length} batch item${selected.length === 1 ? '' : 's'} reviewed and queued.`);
         }
 
         function loadImageElement(src) {
@@ -1514,6 +1587,60 @@
             }
         }
 
+        function beginRegionSelection() {
+            const source = currentImageData || currentImageUrl;
+            if (!source) {
+                showToast('Load an image before selecting a region.', '⚠️', true);
+                return;
+            }
+            const canvas = document.getElementById('roiCanvas');
+            const wrap = canvas.parentElement;
+            canvas.width = wrap.clientWidth;
+            canvas.height = wrap.clientHeight;
+            canvas.hidden = false;
+            canvas.dataset.source = source;
+            roiOriginalSource = source;
+            showToast('Drag across the preview to choose a search region.', '↘');
+        }
+
+        async function applyRegionSelection(start, end) {
+            const canvas = document.getElementById('roiCanvas');
+            const source = canvas.dataset.source;
+            const imageRect = previewImage.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+            const left = Math.max(imageRect.left, Math.min(start.x, end.x) + canvasRect.left);
+            const top = Math.max(imageRect.top, Math.min(start.y, end.y) + canvasRect.top);
+            const right = Math.min(imageRect.right, Math.max(start.x, end.x) + canvasRect.left);
+            const bottom = Math.min(imageRect.bottom, Math.max(start.y, end.y) + canvasRect.top);
+            if (right - left < 12 || bottom - top < 12) {
+                showToast('Selected region is too small.', '⚠️', true);
+                return;
+            }
+            try {
+                const image = await loadImageElement(source);
+                const scaleX = image.naturalWidth / imageRect.width;
+                const scaleY = image.naturalHeight / imageRect.height;
+                const sx = Math.round((left - imageRect.left) * scaleX);
+                const sy = Math.round((top - imageRect.top) * scaleY);
+                const sw = Math.round((right - left) * scaleX);
+                const sh = Math.round((bottom - top) * scaleY);
+                const crop = document.createElement('canvas');
+                crop.width = sw;
+                crop.height = sh;
+                crop.getContext('2d').drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh);
+                originalHashes = originalHashes || (lastHashes ? { ...lastHashes } : null);
+                lastPreprocessing.push({ mode: 'region', x: sx, y: sy, width: sw, height: sh, timestamp: new Date().toISOString() });
+                loadImage(crop.toDataURL('image/jpeg', 0.92), true, true);
+                document.getElementById('roiResetBtn').hidden = false;
+                showToast('Selected region is ready; original hashes remain in the case export.');
+            } catch (error) {
+                showToast('Region selection requires a local image or CORS-enabled URL.', '⚠️', true);
+            } finally {
+                canvas.hidden = true;
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
         function exportCaseFile() {
             const source = hostedUrl || currentImageUrl || (currentImageData ? 'local-data-url' : '');
             if (!source) { showToast('Load an image first', '⚠️', true); return; }
@@ -1526,6 +1653,7 @@
                 sourceType: currentImageData ? (hostedUrl ? 'hosted-local' : 'local') : 'remote',
                 selectedEngines: activeEngines.map((eng) => ({ id: eng, name: SEARCH_ENGINES[eng]?.name || eng })),
                 hashes: lastHashes,
+                originalHashes,
                 preprocessing: lastPreprocessing,
                 batchCount: currentBatch.length,
                 dispatches: dispatches.map(({ target, ...dispatch }) => ({ ...dispatch, targetHost: new URL(target).host }))
@@ -1546,6 +1674,8 @@
             hostedUrl = null;
             currentBatch = [];
             lastHashes = null;
+            originalHashes = null;
+            roiOriginalSource = '';
             lastPreprocessing = [];
             dispatches = [];
             previewImage.src = '';
@@ -1661,6 +1791,10 @@
         // Engine toggles
         document.querySelectorAll('.engine-toggle').forEach(t => {
             const eng = t.dataset.engine;
+            const metadata = SEARCH_ENGINES[eng];
+            t.title = `${metadata.host} • ${metadata.capabilities.join(', ')} • ${metadata.maintenance}`;
+            t.querySelector('.engine-meta').textContent = metadata.maintenance === 'active' ? metadata.input.replaceAll('-', ' ') : metadata.maintenance;
+            t.disabled = metadata.maintenance !== 'active';
             t.classList.toggle('active', activeEngines.includes(eng));
             t.setAttribute('aria-pressed', String(activeEngines.includes(eng)));
             t.addEventListener('click', () => {
@@ -1734,6 +1868,41 @@
         document.getElementById('rotateBtn').addEventListener('click', () => preprocessCurrentImage('rotate'));
         document.getElementById('cropBtn').addEventListener('click', () => preprocessCurrentImage('crop'));
         document.getElementById('trimBtn').addEventListener('click', () => preprocessCurrentImage('trim'));
+        document.getElementById('roiBtn').addEventListener('click', beginRegionSelection);
+        document.getElementById('roiResetBtn').addEventListener('click', () => {
+            if (!roiOriginalSource) return;
+            loadImage(roiOriginalSource, roiOriginalSource.startsWith('data:'), true);
+            lastPreprocessing = lastPreprocessing.filter((item) => item.mode !== 'region');
+            document.getElementById('roiResetBtn').hidden = true;
+            showToast('Original image restored.');
+        });
+        {
+            const roiCanvas = document.getElementById('roiCanvas');
+            let roiStart = null;
+            roiCanvas.addEventListener('pointerdown', (event) => {
+                roiCanvas.setPointerCapture(event.pointerId);
+                const rect = roiCanvas.getBoundingClientRect();
+                roiStart = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+            });
+            roiCanvas.addEventListener('pointermove', (event) => {
+                if (!roiStart) return;
+                const rect = roiCanvas.getBoundingClientRect();
+                const end = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+                const context = roiCanvas.getContext('2d');
+                context.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
+                context.strokeStyle = '#00ff88';
+                context.lineWidth = 3;
+                context.strokeRect(roiStart.x, roiStart.y, end.x - roiStart.x, end.y - roiStart.y);
+            });
+            roiCanvas.addEventListener('pointerup', (event) => {
+                if (!roiStart) return;
+                const rect = roiCanvas.getBoundingClientRect();
+                const end = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+                const start = roiStart;
+                roiStart = null;
+                applyRegionSelection(start, end);
+            });
+        }
         document.getElementById('hashGrid').addEventListener('click', (e) => {
             const card = e.target.closest('[data-copy]');
             if (!card) return;

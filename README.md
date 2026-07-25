@@ -10,6 +10,7 @@ ImageXpert is a static reverse image search hub for fast attribution work. Drop 
 - Bounded batch image mode and cancellable short-video keyframe extraction.
 - Local SHA-256, pHash, and dHash display with copy-on-click hash cards.
 - Local preprocess tools for rotate, center crop, and bottom-strip trimming.
+- Drag-to-select region search with original-hash retention and optional Bing text context.
 - Local-only mode is the default. External upload requires explicit consent, uses
   litterbox.catbox.moe with 1-hour retention, and then exposes a retryable
   per-engine dispatch queue.
