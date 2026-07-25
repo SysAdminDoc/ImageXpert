@@ -38,7 +38,9 @@ check('version strings are synchronized', () => {
     assert.equal(JSON.parse(read('extension/manifest.json')).version, version);
     assert.equal(JSON.parse(read('manifest.webmanifest')).version, version);
     assert.match(read('index.html'), new RegExp(`const APP_VERSION = '${version.replaceAll('.', '\\.')}'`));
-    assert.match(read('MediaHunter_Lite.user.js'), new RegExp(`@version\\s+${version.replaceAll('.', '\\.')}`));
+    const userscript = read('MediaHunter_Lite.user.js');
+    assert.match(userscript, new RegExp(`@version\\s+${version.replaceAll('.', '\\.')}`));
+    assert.match(userscript, new RegExp(`MEDIAHUNTER_VERSION = '${version.replaceAll('.', '\\.')}'`));
     assert.match(read('sw.js'), new RegExp(`imagexpert-v${version.replaceAll('.', '\\.')}`));
     assert.match(read('README.md'), new RegExp(`version-${expected.replaceAll('-', '--')}-blue`));
     assert.match(read('CHANGELOG.md'), new RegExp(`## \\[${expected.replaceAll('.', '\\.')}\\]`));

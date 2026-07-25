@@ -1,4 +1,4 @@
-const CACHE_NAME = 'imagexpert-v1.1.0';
+const CACHE_NAME = 'imagexpert-v1.2.0';
 const OFFLINE_ASSETS = Object.freeze([
   './',
   './index.html',

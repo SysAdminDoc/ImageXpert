@@ -2,7 +2,7 @@
 
 All notable changes to ImageXpert will be documented in this file.
 
-## Unreleased
+## [v1.2.0] - 2026-07-25
 
 - Canonicalized the application on `index.html` with a legacy URL redirect.
 - Added schema-versioned, corruption-tolerant settings and bounded history migration.

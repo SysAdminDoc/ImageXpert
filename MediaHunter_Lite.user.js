@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MediaHunter Lite
 // @namespace    https://tampermonkey.net/
-// @version      1.1.0
+// @version      1.2.0
 // @updateURL      https://raw.githubusercontent.com/SysAdminDoc/ImageXpert/main/MediaHunter_Lite.user.js
 // @downloadURL    https://raw.githubusercontent.com/SysAdminDoc/ImageXpert/main/MediaHunter_Lite.user.js
 // @description  Lightweight media search & download tool. Deep Scan pages for images/videos, Reverse Image Search, Batch Download.
@@ -55,13 +55,14 @@
     };
 
     const IMAGEXPERT_URL = 'https://sysadmindoc.github.io/ImageXpert/';
+    const MEDIAHUNTER_VERSION = '1.2.0';
     let lastContextImageUrl = '';
     const diagnostics = [];
 
     function recordDiagnostic(phase, error) {
         diagnostics.push({
             timestamp: new Date().toISOString(),
-            version: '1.1.0',
+            version: MEDIAHUNTER_VERSION,
             phase,
             code: String(error?.name || 'error').toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 40)
         });
@@ -183,7 +184,7 @@
     GM_registerMenuCommand('Copy redacted MediaHunter diagnostics', () => {
         GM_setClipboard(JSON.stringify({
             app: 'MediaHunter Lite',
-            version: '1.1.0',
+            version: MEDIAHUNTER_VERSION,
             generatedAt: new Date().toISOString(),
             events: diagnostics
         }, null, 2));

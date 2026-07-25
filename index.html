@@ -882,7 +882,7 @@
         const Core = window.ImageXpertCore;
         const I18n = window.ImageXpertI18n;
         const activeLocale = I18n.apply(document, navigator.language);
-        const APP_VERSION = '1.1.0';
+        const APP_VERSION = '1.2.0';
         const SEARCH_ENGINES = {
             google: { name: 'Google Lens', host: 'lens.google.com', input: 'url-or-manual', capabilities: ['general', 'products'], maintenance: 'active', manualUrl: 'https://lens.google.com/', url: (u) => `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(u)}` },
             yandex: { name: 'Yandex', host: 'yandex.com', input: 'url-or-manual', capabilities: ['general', 'similar'], maintenance: 'active', manualUrl: 'https://yandex.com/images/', url: (u) => `https://yandex.com/images/search?rpt=imageview&url=${encodeURIComponent(u)}` },
@@ -1858,7 +1858,7 @@
             const data = {
                 app: 'ImageXpert',
                 schemaVersion: 2,
-                version: '1.1.0',
+                version: APP_VERSION,
                 createdAt: new Date().toISOString(),
                 source,
                 sourceType: currentImageData ? (hostedUrl ? 'hosted-local' : 'local') : 'remote',
