@@ -2211,6 +2211,8 @@
             }
             try {
                 const next = Core.validateEngineManifest(await file.text());
+                const conflicts = next.engines.filter((engine) => BUILTIN_ENGINE_IDS.includes(engine.id));
+                if (conflicts.length) throw new Error(`IDs conflict with built-in engines: ${conflicts.map((engine) => engine.id).join(', ')}`);
                 const currentIds = new Set(customEngineManifest.engines.map((engine) => engine.id));
                 const nextIds = new Set(next.engines.map((engine) => engine.id));
                 const added = [...nextIds].filter((id) => !currentIds.has(id));
