@@ -2,6 +2,10 @@
 
 All notable changes to ImageXpert will be documented in this file.
 
+## Unreleased
+
+- Reimagined the app as a responsive visual-investigation workbench with a dominant intake canvas, visible local-only guardrail, compact engine control rail, and clearer URL-search hierarchy.
+
 ## [v1.2.0] - 2026-07-25
 
 - Canonicalized the application on `index.html` with a legacy URL redirect.
