@@ -585,6 +585,26 @@
 
         .info-box strong { color: var(--accent); }
 
+        .privacy-banner, .dispatch-panel {
+            margin-top: 14px;
+            padding: 14px 16px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--surface);
+        }
+
+        .privacy-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .privacy-banner strong { color: var(--accent); }
+        .privacy-banner p { color: var(--text-dim); font-size: 0.82rem; margin-top: 4px; }
+        .dispatch-panel[hidden] { display: none; }
+        .dispatch-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+        .dispatch-list { display: grid; gap: 8px; }
+        .dispatch-item { display: grid; grid-template-columns: minmax(130px, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; background: var(--bg); }
+        .dispatch-status { color: var(--text-dim); font-size: 0.78rem; }
+        .dispatch-status[data-status="opened"] { color: var(--accent); }
+        .dispatch-status[data-status="blocked"], .dispatch-status[data-status="failed"], .dispatch-status[data-status="consent-required"] { color: #ff8c8c; }
+        #cancelOperationBtn { margin-left: 10px; }
+
         @media (max-width: 768px) {
             .header { padding: 15px 20px; flex-wrap: wrap; gap: 15px; }
             .main { padding: 20px; }
@@ -595,6 +615,9 @@
             .preview-actions { flex-direction: column; align-items: stretch; }
             .preview-buttons { justify-content: center; }
             .hash-grid { grid-template-columns: 1fr; }
+            .privacy-banner, .dispatch-header { align-items: stretch; flex-direction: column; }
+            .dispatch-item { grid-template-columns: 1fr auto; }
+            .dispatch-status { grid-column: 1 / -1; }
         }
 
         #fileInput { display: none; }
@@ -604,7 +627,7 @@
     <header class="header">
         <div class="logo">
             <div class="logo-icon">🔍</div>
-            <h1>Reverse<span>Search</span></h1>
+            <h1>Image<span>Xpert</span></h1>
         </div>
         <div class="header-actions">
             <button class="header-btn" id="historyBtn"><span>📂</span> History</button>
@@ -674,11 +697,29 @@
             <input type="text" class="url-input" id="urlInput" placeholder="Or paste an image URL here...">
             <button class="url-btn" id="urlSearchBtn">🔍 Search URL</button>
         </div>
+        <div class="privacy-banner" id="privacyBanner">
+            <div>
+                <strong id="privacyModeLabel">Local-only mode</strong>
+                <p id="privacyModeDescription">Local files stay on this device. Engines open their manual upload pages.</p>
+            </div>
+            <button class="action-btn" id="privacyModeBtn" type="button">Change privacy mode</button>
+        </div>
+        <section class="dispatch-panel" id="dispatchPanel" aria-labelledby="dispatchHeading" hidden>
+            <div class="dispatch-header">
+                <div>
+                    <strong id="dispatchHeading">Engine dispatch queue</strong>
+                    <div class="dispatch-status" id="dispatchSummary">Nothing queued</div>
+                </div>
+                <button class="action-btn primary" id="openQueuedBtn" type="button">Open queued engines</button>
+            </div>
+            <div class="dispatch-list" id="dispatchList"></div>
+        </section>
     </main>
 
     <div class="status-bar" id="statusBar">
         <div class="spinner"></div>
         <span class="status-text" id="statusText">Processing...</span>
+        <button class="history-btn" id="cancelOperationBtn" type="button" hidden>Cancel</button>
         <div class="progress-bar" id="progressBar" style="display: none;">
             <div class="progress-fill" id="progressFill"></div>
         </div>
@@ -796,13 +837,16 @@
             pimeyes: { name: 'PimEyes', manualUrl: 'https://pimeyes.com/en', manualOnly: true, consentNotice: 'PimEyes is face search. Use only with consent.', url: () => 'https://pimeyes.com/en' }
         };
 
-        const DEFAULT_SETTINGS = { autoSearch: false, saveHistory: true, noUpload: true };
+        const DEFAULT_SETTINGS = { autoSearch: false, saveHistory: true, noUpload: true, externalUploadConsent: false };
         const DEFAULT_ENGINES = ['google', 'yandex'];
         let currentImageUrl = '';
         let currentImageData = null;
         let hostedUrl = null;
         let currentBatch = [];
         let lastHashes = null;
+        let lastPreprocessing = [];
+        let dispatches = [];
+        let activeOperation = null;
         const migratedState = Core.migrateState({
             version: localStorage.getItem('rs_schema_version'),
             settings: localStorage.getItem('rs_settings'),
@@ -824,6 +868,7 @@
         const statusText = document.getElementById('statusText');
         const progressBar = document.getElementById('progressBar');
         const progressFill = document.getElementById('progressFill');
+        const cancelOperationBtn = document.getElementById('cancelOperationBtn');
 
         function showToast(msg, icon = '✓', err = false) {
             const t = document.getElementById('toast');
@@ -841,7 +886,24 @@
         }
 
         function updateProgress(p) { progressFill.style.width = p + '%'; }
-        function hideStatus() { statusBar.classList.remove('show'); progressFill.style.width = '0%'; }
+        function hideStatus() {
+            statusBar.classList.remove('show');
+            progressFill.style.width = '0%';
+            cancelOperationBtn.hidden = true;
+        }
+
+        function beginOperation(label) {
+            if (activeOperation) activeOperation.abort();
+            activeOperation = new AbortController();
+            cancelOperationBtn.hidden = false;
+            showStatus(label, true);
+            return activeOperation;
+        }
+
+        function endOperation(controller) {
+            if (activeOperation === controller) activeOperation = null;
+            hideStatus();
+        }
 
         function saveSettings() {
             try {
@@ -871,39 +933,62 @@
             }
         }
 
-        async function uploadToLitterbox(file) {
-            showStatus('Uploading image...', true);
-            updateProgress(10);
+        function syncPrivacyUI() {
+            const localOnly = settings.noUpload;
+            document.getElementById('privacyModeLabel').textContent = localOnly ? 'Local-only mode' : 'External upload enabled';
+            document.getElementById('privacyModeDescription').textContent = localOnly
+                ? 'Local files stay on this device. Engines open their manual upload pages.'
+                : 'Local files upload to litterbox.catbox.moe for 1 hour before engine dispatch.';
+            document.getElementById('privacyModeBtn').textContent = localOnly ? 'Enable external upload' : 'Use local-only mode';
+            document.getElementById('noUploadToggle').classList.toggle('on', localOnly);
+        }
 
+        function setExternalUploadEnabled(enabled) {
+            if (enabled) {
+                const accepted = confirm('Enable external upload?\n\nLocal files will be uploaded to litterbox.catbox.moe with 1-hour retention. The resulting public URL will be sent to each selected search engine.');
+                if (!accepted) return false;
+                settings.noUpload = false;
+                settings.externalUploadConsent = true;
+            } else {
+                settings.noUpload = true;
+                settings.externalUploadConsent = false;
+            }
+            syncPrivacyUI();
+            saveSettings();
+            return true;
+        }
+
+        async function uploadToLitterbox(file) {
+            const controller = beginOperation('Uploading to litterbox.catbox.moe (1-hour retention)...');
+            const timeout = setTimeout(() => controller.abort('timeout'), 30_000);
             const formData = new FormData();
             formData.append('reqtype', 'fileupload');
             formData.append('time', '1h');
             formData.append('fileToUpload', file);
 
             try {
-                updateProgress(30);
-                const res = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', { method: 'POST', body: formData });
-                updateProgress(80);
-                if (!res.ok) throw new Error('Upload failed');
-                const url = await res.text();
-                updateProgress(100);
-                if (url.startsWith('https://')) return url.trim();
-                throw new Error('Invalid response');
-            } catch (e) {
-                console.error('Litterbox failed:', e);
-                showStatus('Trying backup host...', true);
                 updateProgress(10);
-                const formData2 = new FormData();
-                formData2.append('reqtype', 'fileupload');
-                formData2.append('fileToUpload', file);
-                try {
-                    const res2 = await fetch('https://catbox.moe/user/api.php', { method: 'POST', body: formData2 });
-                    updateProgress(80);
-                    const url2 = await res2.text();
-                    updateProgress(100);
-                    if (url2.startsWith('https://')) return url2.trim();
-                } catch (e2) { console.error('Catbox failed:', e2); }
+                updateProgress(30);
+                const res = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal
+                });
+                updateProgress(80);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const url = (await res.text()).trim();
+                updateProgress(100);
+                if (Core.isHttpUrl(url)) return url;
+                throw new Error('Host returned an invalid URL');
+            } catch (error) {
+                const message = controller.signal.aborted
+                    ? (controller.signal.reason === 'timeout' ? 'Upload timed out after 30 seconds.' : 'Upload cancelled.')
+                    : `Upload failed: ${error.message}`;
+                showToast(`${message} Use Search Again to retry.`, '⚠️', true);
                 return null;
+            } finally {
+                clearTimeout(timeout);
+                endOperation(controller);
             }
         }
 
@@ -925,26 +1010,78 @@
             return escapeHtml(value).replace(/`/g, '&#96;');
         }
 
-        function openSelectedEngines(searchUrl, manual = false) {
-            const opened = [];
-            activeEngines.forEach((eng) => {
-                const engine = SEARCH_ENGINES[eng];
-                if (!engine) return;
-                if (engine.consentNotice) showToast(engine.consentNotice, '!', true);
-                const target = manual || engine.manualOnly ? engine.manualUrl : engine.url(searchUrl);
-                const win = window.open(target, '_blank');
-                if (win) opened.push(eng);
-            });
-            return opened;
+        function makeDispatchId(engineId) {
+            return `${engineId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         }
 
-        function reportOpened(opened, total) {
-            setTimeout(() => {
-                hideStatus();
-                if (opened.length === total) showToast(`Opened ${opened.length} engines!`);
-                else if (opened.length > 0) showToast(`Opened ${opened.length}/${total} - allow popups for all`, '!', true);
-                else showToast('Popups blocked. Allow popups, then use Search Again.', '!', true);
-            }, 300);
+        function queueSelectedEngines(searchUrl, manual = false, sourceId = 'single') {
+            dispatches = activeEngines.map((engineId) => {
+                const engine = SEARCH_ENGINES[engineId];
+                const consentRequired = Boolean(engine?.consentNotice);
+                return {
+                    id: makeDispatchId(engineId),
+                    engineId,
+                    sourceId,
+                    target: manual || engine.manualOnly ? engine.manualUrl : engine.url(searchUrl),
+                    status: consentRequired ? 'consent-required' : (manual || engine.manualOnly ? 'manual-only' : 'queued'),
+                    timestamp: new Date().toISOString(),
+                    error: consentRequired ? engine.consentNotice : ''
+                };
+            });
+            renderDispatchQueue();
+            return dispatches;
+        }
+
+        function openDispatch(dispatch) {
+            const engine = SEARCH_ENGINES[dispatch.engineId];
+            if (!engine || !Core.isHttpUrl(dispatch.target)) {
+                dispatch.status = 'failed';
+                dispatch.error = 'Unsafe or missing engine URL';
+                dispatch.timestamp = new Date().toISOString();
+                renderDispatchQueue();
+                return;
+            }
+            if (dispatch.status === 'consent-required') {
+                if (!confirm(`${engine.consentNotice}\n\nOpen ${engine.name} now?`)) return;
+                dispatch.status = 'manual-only';
+            }
+            try {
+                const opened = window.open(dispatch.target, '_blank', 'noopener,noreferrer');
+                dispatch.status = opened ? 'opened' : 'blocked';
+                dispatch.error = opened ? '' : 'Browser blocked the tab. Retry this engine after allowing popups.';
+            } catch (error) {
+                dispatch.status = 'failed';
+                dispatch.error = error.message;
+            }
+            dispatch.timestamp = new Date().toISOString();
+            renderDispatchQueue();
+        }
+
+        function renderDispatchQueue() {
+            const panel = document.getElementById('dispatchPanel');
+            const list = document.getElementById('dispatchList');
+            panel.hidden = dispatches.length === 0;
+            list.replaceChildren();
+            for (const dispatch of dispatches) {
+                const row = document.createElement('div');
+                row.className = 'dispatch-item';
+                const name = document.createElement('strong');
+                name.textContent = SEARCH_ENGINES[dispatch.engineId]?.name || dispatch.engineId;
+                const status = document.createElement('span');
+                status.className = 'dispatch-status';
+                status.dataset.status = dispatch.status;
+                status.textContent = dispatch.error ? `${dispatch.status}: ${dispatch.error}` : dispatch.status;
+                const retry = document.createElement('button');
+                retry.type = 'button';
+                retry.className = 'history-btn';
+                retry.textContent = ['opened'].includes(dispatch.status) ? 'Open again' : 'Open / retry';
+                retry.addEventListener('click', () => openDispatch(dispatch));
+                row.append(name, status, retry);
+                list.append(row);
+            }
+            const pending = dispatches.filter((item) => ['queued', 'manual-only', 'blocked', 'failed'].includes(item.status)).length;
+            document.getElementById('dispatchSummary').textContent = `${dispatches.length} engine${dispatches.length === 1 ? '' : 's'} • ${pending} ready to open`;
+            document.getElementById('openQueuedBtn').disabled = pending === 0;
         }
 
         function addHistoryRecord(searchUrl, thumb) {
@@ -969,24 +1106,33 @@
 
             if (isLocal) {
                 if (settings.noUpload) {
-                    showStatus(`Opening ${activeEngines.length} manual upload page${activeEngines.length > 1 ? 's' : ''}...`);
-                    const opened = openSelectedEngines(null, true);
-                    reportOpened(opened, activeEngines.length);
-                    showToast('No-upload mode kept the local file on this device.', '!');
+                    queueSelectedEngines(null, true);
+                    showToast('Local file stayed on this device. Use the queue to open manual upload pages.', '!');
                     return;
+                }
+                if (!settings.externalUploadConsent) {
+                    const accepted = confirm('Upload this local image to litterbox.catbox.moe?\n\nRetention: 1 hour, then the host states it is deleted. The resulting public URL is sent to selected search engines.');
+                    if (!accepted) {
+                        settings.noUpload = true;
+                        syncPrivacyUI();
+                        saveSettings();
+                        queueSelectedEngines(null, true);
+                        showToast('Upload cancelled. Manual engine pages are queued instead.', '!');
+                        return;
+                    }
+                    settings.externalUploadConsent = true;
+                    saveSettings();
                 }
                 const file = dataURLtoFile(imageUrl);
                 const uploaded = await uploadToLitterbox(file);
-                if (!uploaded) { hideStatus(); showToast('Upload failed. Try a URL.', '❌', true); return; }
+                if (!uploaded) return;
                 searchUrl = uploaded;
                 hostedUrl = uploaded;
-                imageInfo.innerHTML = `Hosted: <strong>${uploaded.substring(0, 35)}...</strong>`;
+                imageInfo.textContent = `Hosted for 1 hour: ${uploaded.substring(0, 35)}…`;
             }
 
-            // Open all tabs immediately (no setTimeout) to avoid popup blocking
-            showStatus(`Opening ${activeEngines.length} engine${activeEngines.length > 1 ? 's' : ''}...`);
-            const opened = openSelectedEngines(searchUrl, false);
-            reportOpened(opened, activeEngines.length);
+            queueSelectedEngines(searchUrl, false);
+            showToast('Engines queued. Use Open queued engines to dispatch with a user gesture.');
             addHistoryRecord(searchUrl, currentImageData || searchUrl);
         }
 
@@ -1010,25 +1156,55 @@
             loadImage(url, false);
         }
 
-        function readFileAsDataURL(file) {
+        function readFileAsDataURL(file, signal) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = (e) => resolve(e.target.result);
-                reader.onerror = reject;
+                reader.onerror = () => reject(reader.error || new Error(`Could not read ${file.name}`));
+                reader.onabort = () => reject(new DOMException('File read cancelled', 'AbortError'));
+                if (signal) signal.addEventListener('abort', () => reader.abort(), { once: true });
                 reader.readAsDataURL(file);
+            });
+        }
+
+        function validateImageDimensions(file) {
+            return new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(file);
+                const image = new Image();
+                image.onload = () => {
+                    URL.revokeObjectURL(url);
+                    if (image.naturalWidth > Core.MAX_IMAGE_DIMENSION || image.naturalHeight > Core.MAX_IMAGE_DIMENSION) {
+                        reject(new Error(`${file.name} exceeds the ${Core.MAX_IMAGE_DIMENSION}px dimension limit`));
+                    } else {
+                        resolve();
+                    }
+                };
+                image.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    reject(new Error(`${file.name} could not be decoded as an image`));
+                };
+                image.src = url;
             });
         }
 
         async function loadFromFile(file, skipAuto = false) {
             if (!file) { showToast('Select an image or video', '⚠️', true); return; }
+            const validation = Core.validateFiles([file]);
+            if (validation.rejected.length) {
+                showToast(`${file.name} — ${validation.rejected[0].reason}`, '⚠️', true);
+                return;
+            }
             if (file.type.startsWith('video/')) {
                 await loadVideoFrames(file);
                 return;
             }
             if (!file.type.startsWith('image/')) { showToast('Select an image', '⚠️', true); return; }
-            const reader = new FileReader();
-            reader.onload = (e) => loadImage(e.target.result, true, skipAuto);
-            reader.readAsDataURL(file);
+            try {
+                await validateImageDimensions(file);
+                loadImage(await readFileAsDataURL(file), true, skipAuto);
+            } catch (error) {
+                showToast(error.message, '⚠️', true);
+            }
         }
 
         async function loadFromFiles(fileList) {
@@ -1041,20 +1217,27 @@
             if (files.length === 0) { showToast('Drop image or video files', '⚠️', true); return; }
             if (files.length === 1) { await loadFromFile(files[0]); return; }
 
-            showStatus('Preparing batch...', true);
+            const controller = beginOperation('Preparing batch...');
             currentBatch = [];
-            for (let i = 0; i < files.length; i++) {
-                updateProgress(Math.round((i / files.length) * 80));
-                const file = files[i];
-                if (file.type.startsWith('video/')) {
-                    const frames = await extractVideoFrames(file, 4);
-                    frames.forEach((frame, idx) => currentBatch.push({ name: `${file.name} frame ${idx + 1}`, dataUrl: frame }));
-                } else {
-                    currentBatch.push({ name: file.name, dataUrl: await readFileAsDataURL(file) });
+            try {
+                for (let i = 0; i < files.length; i++) {
+                    if (controller.signal.aborted) throw new DOMException('Batch cancelled', 'AbortError');
+                    updateProgress(Math.round((i / files.length) * 80));
+                    const file = files[i];
+                    if (file.type.startsWith('video/')) {
+                        const frames = await extractVideoFrames(file, Core.MAX_VIDEO_FRAMES, controller.signal);
+                        frames.forEach((frame, idx) => currentBatch.push({ id: `${file.name}-${idx}`, name: `${file.name} frame ${idx + 1}`, dataUrl: frame.dataUrl, timestamp: frame.timestamp }));
+                    } else {
+                        await validateImageDimensions(file);
+                        currentBatch.push({ id: `${file.name}-${file.lastModified}`, name: file.name, dataUrl: await readFileAsDataURL(file, controller.signal), timestamp: null });
+                    }
                 }
+            } catch (error) {
+                showToast(error.name === 'AbortError' ? 'Batch preparation cancelled.' : error.message, '⚠️', true);
+            } finally {
+                endOperation(controller);
             }
             updateProgress(100);
-            hideStatus();
             if (currentBatch.length === 0) { showToast('No searchable frames or images found', '⚠️', true); return; }
             renderBatch(0);
             loadImage(currentBatch[0].dataUrl, true, true);
@@ -1062,24 +1245,51 @@
         }
 
         async function loadVideoFrames(file) {
-            showStatus('Extracting video frames...', true);
-            currentBatch = (await extractVideoFrames(file, 4)).map((frame, idx) => ({ name: `${file.name} frame ${idx + 1}`, dataUrl: frame }));
-            hideStatus();
+            const controller = beginOperation('Extracting video frames...');
+            try {
+                currentBatch = (await extractVideoFrames(file, Core.MAX_VIDEO_FRAMES, controller.signal))
+                    .map((frame, idx) => ({ id: `${file.name}-${idx}`, name: `${file.name} frame ${idx + 1}`, dataUrl: frame.dataUrl, timestamp: frame.timestamp }));
+            } catch (error) {
+                showToast(error.name === 'AbortError' ? 'Video extraction cancelled.' : error.message, '⚠️', true);
+                currentBatch = [];
+            } finally {
+                endOperation(controller);
+            }
             if (currentBatch.length === 0) { showToast('Could not extract frames', '⚠️', true); return; }
             renderBatch(0);
             loadImage(currentBatch[0].dataUrl, true, true);
             if (settings.autoSearch) performBatchSearch();
         }
 
-        function extractVideoFrames(file, count) {
-            return new Promise((resolve) => {
+        function extractVideoFrames(file, count, signal) {
+            return new Promise((resolve, reject) => {
                 const video = document.createElement('video');
                 const url = URL.createObjectURL(file);
                 const frames = [];
+                const cleanup = () => {
+                    video.removeAttribute('src');
+                    video.load();
+                    URL.revokeObjectURL(url);
+                };
                 video.muted = true;
                 video.preload = 'metadata';
                 video.src = url;
                 video.onloadedmetadata = async () => {
+                    if (!Number.isFinite(video.duration) || video.duration <= 0) {
+                        cleanup();
+                        reject(new Error(`${file.name} has no readable duration`));
+                        return;
+                    }
+                    if (video.duration > Core.MAX_VIDEO_SECONDS) {
+                        cleanup();
+                        reject(new Error(`${file.name} exceeds the ${Core.MAX_VIDEO_SECONDS}-second video limit`));
+                        return;
+                    }
+                    if (video.videoWidth > Core.MAX_IMAGE_DIMENSION || video.videoHeight > Core.MAX_IMAGE_DIMENSION) {
+                        cleanup();
+                        reject(new Error(`${file.name} exceeds the ${Core.MAX_IMAGE_DIMENSION}px dimension limit`));
+                        return;
+                    }
                     const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : count;
                     const points = Array.from({ length: count }, (_, idx) => {
                         const raw = duration * ((idx + 1) / (count + 1));
@@ -1089,20 +1299,33 @@
                     const ctx = canvas.getContext('2d', { willReadFrequently: true });
                     canvas.width = video.videoWidth || 1280;
                     canvas.height = video.videoHeight || 720;
-                    for (const point of points) {
-                        await new Promise((seekDone) => {
-                            video.onseeked = () => {
-                                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                                frames.push(canvas.toDataURL('image/jpeg', 0.9));
-                                seekDone();
-                            };
-                            video.currentTime = point;
-                        });
+                    try {
+                        for (const point of points) {
+                            if (signal?.aborted) throw new DOMException('Video extraction cancelled', 'AbortError');
+                            await new Promise((seekDone, seekFail) => {
+                                const seekTimeout = setTimeout(() => seekFail(new Error(`Frame extraction timed out for ${file.name}`)), 10_000);
+                                video.onseeked = () => {
+                                    clearTimeout(seekTimeout);
+                                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                                    frames.push({ dataUrl: canvas.toDataURL('image/jpeg', 0.9), timestamp: point });
+                                    seekDone();
+                                };
+                                video.currentTime = point;
+                            });
+                        }
+                    } catch (error) {
+                        cleanup();
+                        reject(error);
+                        return;
                     }
-                    URL.revokeObjectURL(url);
+                    cleanup();
                     resolve(frames);
                 };
-                video.onerror = () => { URL.revokeObjectURL(url); resolve([]); };
+                video.onerror = () => { cleanup(); reject(new Error(`${file.name} could not be decoded as video`)); };
+                signal?.addEventListener('abort', () => {
+                    cleanup();
+                    reject(new DOMException('Video extraction cancelled', 'AbortError'));
+                }, { once: true });
             });
         }
 
@@ -1267,6 +1490,7 @@
                 currentBatch = [];
                 renderBatch();
                 loadImage(canvas.toDataURL('image/jpeg', 0.92), true, true);
+                lastPreprocessing.push({ mode, timestamp: new Date().toISOString() });
                 showToast('Preprocessed image ready');
             } catch (err) {
                 console.warn('Preprocess failed:', err);
@@ -1286,9 +1510,9 @@
                 sourceType: currentImageData ? (hostedUrl ? 'hosted-local' : 'local') : 'remote',
                 selectedEngines: activeEngines.map((eng) => ({ id: eng, name: SEARCH_ENGINES[eng]?.name || eng })),
                 hashes: lastHashes,
-                preprocessing: document.getElementById('imageInfo').textContent,
+                preprocessing: lastPreprocessing,
                 batchCount: currentBatch.length,
-                dispatches: []
+                dispatches: dispatches.map(({ target, ...dispatch }) => ({ ...dispatch, targetHost: new URL(target).host }))
             };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -1306,12 +1530,15 @@
             hostedUrl = null;
             currentBatch = [];
             lastHashes = null;
+            lastPreprocessing = [];
+            dispatches = [];
             previewImage.src = '';
             dropZone.classList.remove('has-image');
             urlInput.value = '';
             imageInfo.textContent = 'Ready';
             document.getElementById('hashGrid').innerHTML = '';
             renderBatch();
+            renderDispatchQueue();
         }
 
         function renderHistory() {
@@ -1353,6 +1580,10 @@
             const eng = t.dataset.engine;
             t.classList.toggle('active', activeEngines.includes(eng));
             t.addEventListener('click', () => {
+                if (!t.classList.contains('active') && SEARCH_ENGINES[eng]?.consentNotice) {
+                    const accepted = confirm(`${SEARCH_ENGINES[eng].consentNotice}\n\nAdd this manual-only engine? It will still require a separate click before opening.`);
+                    if (!accepted) return;
+                }
                 t.classList.toggle('active');
                 if (t.classList.contains('active')) { if (!activeEngines.includes(eng)) activeEngines.push(eng); }
                 else activeEngines = activeEngines.filter(e => e !== eng);
@@ -1419,6 +1650,13 @@
             showToast('Hash copied');
         });
         document.getElementById('clearBtn').addEventListener('click', clearImage);
+        document.getElementById('openQueuedBtn').addEventListener('click', () => {
+            dispatches
+                .filter((dispatch) => ['queued', 'manual-only', 'blocked', 'failed'].includes(dispatch.status))
+                .forEach(openDispatch);
+        });
+        cancelOperationBtn.addEventListener('click', () => activeOperation?.abort('user'));
+        document.getElementById('privacyModeBtn').addEventListener('click', () => setExternalUploadEnabled(settings.noUpload));
 
         // Panels
         document.getElementById('historyBtn').addEventListener('click', () => openPanel('panel'));
@@ -1454,12 +1692,13 @@
         // Settings
         document.getElementById('autoSearchToggle').addEventListener('click', function() { this.classList.toggle('on'); settings.autoSearch = this.classList.contains('on'); saveSettings(); });
         document.getElementById('saveHistoryToggle').addEventListener('click', function() { this.classList.toggle('on'); settings.saveHistory = this.classList.contains('on'); saveSettings(); });
-        document.getElementById('noUploadToggle').addEventListener('click', function() { this.classList.toggle('on'); settings.noUpload = this.classList.contains('on'); saveSettings(); });
+        document.getElementById('noUploadToggle').addEventListener('click', () => setExternalUploadEnabled(settings.noUpload));
 
         // Init
         document.getElementById('autoSearchToggle').classList.toggle('on', settings.autoSearch);
         document.getElementById('saveHistoryToggle').classList.toggle('on', settings.saveHistory);
         document.getElementById('noUploadToggle').classList.toggle('on', settings.noUpload);
+        syncPrivacyUI();
         saveSettings();
         saveHistoryData();
         renderHistory();

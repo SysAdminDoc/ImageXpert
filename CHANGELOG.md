@@ -7,6 +7,8 @@ All notable changes to ImageXpert will be documented in this file.
 - Canonicalized the application on `index.html` with a legacy URL redirect.
 - Added schema-versioned, corruption-tolerant settings and bounded history migration.
 - Made no-upload mode the safe default for new users and added explicit file intake limits.
+- Added cancellable, timeout-bounded upload and media extraction with visible limits and errors.
+- Replaced popup fan-out with a per-engine queue that exposes consent, blocked, failed, opened, and retry states.
 
 ## [v1.1.0] - 2026-06-27
 

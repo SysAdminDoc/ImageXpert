@@ -7,10 +7,12 @@ ImageXpert is a static reverse image search hub for fast attribution work. Drop 
 ## Features
 
 - 12 reverse-search targets: Google Lens, Yandex, Bing, TinEye, SauceNAO, ASCII2D, TraceMoe, PimEyes, and IQDB variants.
-- Batch image mode and video keyframe extraction.
+- Bounded batch image mode and cancellable short-video keyframe extraction.
 - Local SHA-256, pHash, and dHash display with copy-on-click hash cards.
 - Local preprocess tools for rotate, center crop, and bottom-strip trimming.
-- No-upload mode for local files, opening manual engine upload pages instead of temporary hosting.
+- Local-only mode is the default. External upload requires explicit consent, uses
+  litterbox.catbox.moe with 1-hour retention, and then exposes a retryable
+  per-engine dispatch queue.
 - Tampermonkey userscript and Chrome MV3 companion extension for right-click image handoff.
 - PWA manifest and offline shell for installable use.
 
