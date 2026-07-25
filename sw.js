@@ -2,7 +2,7 @@ const CACHE_NAME = 'imagexpert-v1.1.0';
 const OFFLINE_ASSETS = [
   './',
   './index.html',
-  './ImageXpert.html',
+  './app-core.js',
   './MediaHunter_Lite.user.js',
   './manifest.webmanifest',
   './icon.png'

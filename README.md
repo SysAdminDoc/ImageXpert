@@ -22,6 +22,9 @@ Open [ImageXpert](https://sysadmindoc.github.io/ImageXpert/) or serve the repo l
 python -m http.server 8765
 ```
 
+`index.html` is the canonical app. `ImageXpert.html` remains only as a redirect
+for older bookmarks.
+
 Then visit `http://127.0.0.1:8765/`.
 
 ## Companion Extension

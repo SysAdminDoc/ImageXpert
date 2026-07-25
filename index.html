@@ -778,7 +778,9 @@
 
     <input type="file" id="fileInput" accept="image/*,video/*" multiple>
 
+    <script src="./app-core.js"></script>
     <script>
+        const Core = window.ImageXpertCore;
         const SEARCH_ENGINES = {
             google: { name: 'Google Lens', manualUrl: 'https://lens.google.com/', url: (u) => `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(u)}` },
             yandex: { name: 'Yandex', manualUrl: 'https://yandex.com/images/', url: (u) => `https://yandex.com/images/search?rpt=imageview&url=${encodeURIComponent(u)}` },
@@ -794,17 +796,24 @@
             pimeyes: { name: 'PimEyes', manualUrl: 'https://pimeyes.com/en', manualOnly: true, consentNotice: 'PimEyes is face search. Use only with consent.', url: () => 'https://pimeyes.com/en' }
         };
 
-        const DEFAULT_SETTINGS = { autoSearch: true, saveHistory: true, noUpload: false };
+        const DEFAULT_SETTINGS = { autoSearch: false, saveHistory: true, noUpload: true };
         const DEFAULT_ENGINES = ['google', 'yandex'];
         let currentImageUrl = '';
         let currentImageData = null;
         let hostedUrl = null;
         let currentBatch = [];
         let lastHashes = null;
-        let settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('rs_settings') || '{}') };
-        let activeEngines = JSON.parse(localStorage.getItem('rs_engines') || JSON.stringify(DEFAULT_ENGINES)).filter((eng) => SEARCH_ENGINES[eng]);
-        if (activeEngines.length === 0) activeEngines = [...DEFAULT_ENGINES];
-        let history = JSON.parse(localStorage.getItem('rs_history') || '[]');
+        const migratedState = Core.migrateState({
+            version: localStorage.getItem('rs_schema_version'),
+            settings: localStorage.getItem('rs_settings'),
+            engines: localStorage.getItem('rs_engines'),
+            history: localStorage.getItem('rs_history'),
+            legacyGallery: localStorage.getItem('imagexpert_gallery')
+        }, Object.keys(SEARCH_ENGINES), { settings: DEFAULT_SETTINGS, engines: DEFAULT_ENGINES });
+        let settings = migratedState.settings;
+        let activeEngines = migratedState.engines;
+        let history = migratedState.history;
+        let historyUndo = null;
 
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -835,11 +844,32 @@
         function hideStatus() { statusBar.classList.remove('show'); progressFill.style.width = '0%'; }
 
         function saveSettings() {
-            localStorage.setItem('rs_settings', JSON.stringify(settings));
-            localStorage.setItem('rs_engines', JSON.stringify(activeEngines));
+            try {
+                localStorage.setItem('rs_schema_version', String(Core.STORAGE_VERSION));
+                localStorage.setItem('rs_settings', JSON.stringify(settings));
+                localStorage.setItem('rs_engines', JSON.stringify(activeEngines));
+            } catch (error) {
+                showToast('Settings could not be saved. Browser storage may be full.', '⚠️', true);
+            }
         }
 
-        function saveHistoryData() { localStorage.setItem('rs_history', JSON.stringify(history)); }
+        function saveHistoryData() {
+            history = Core.normalizeHistory(history, Object.keys(SEARCH_ENGINES));
+            try {
+                localStorage.setItem('rs_schema_version', String(Core.STORAGE_VERSION));
+                localStorage.setItem('rs_history', JSON.stringify(history));
+                if (migratedState.migratedLegacy) localStorage.removeItem('imagexpert_gallery');
+            } catch (error) {
+                history = history.map((item) => ({ ...item, thumb: '' }));
+                try {
+                    localStorage.setItem('rs_history', JSON.stringify(history));
+                    showToast('History thumbnails removed because browser storage is full.', '⚠️', true);
+                } catch {
+                    settings.saveHistory = false;
+                    showToast('History disabled because browser storage is unavailable.', '⚠️', true);
+                }
+            }
+        }
 
         async function uploadToLitterbox(file) {
             showStatus('Uploading image...', true);
@@ -919,8 +949,15 @@
 
         function addHistoryRecord(searchUrl, thumb) {
             if (!settings.saveHistory || !searchUrl) return;
-            history.unshift({ url: searchUrl, thumb, time: Date.now(), engines: [...activeEngines] });
-            if (history.length > 30) history.pop();
+            history.unshift({
+                id: crypto.randomUUID ? crypto.randomUUID() : `history-${Date.now()}`,
+                url: searchUrl,
+                thumb: Core.boundedThumbnail(thumb),
+                time: Date.now(),
+                engines: [...activeEngines],
+                sourceType: currentImageUrl ? 'remote' : 'hosted'
+            });
+            if (history.length > Core.MAX_HISTORY) history.pop();
             saveHistoryData();
             renderHistory();
         }
@@ -969,7 +1006,7 @@
         }
 
         function loadFromUrl(url) {
-            if (!url.match(/^https?:\/\/.+/i)) { showToast('Enter a valid URL', '⚠️', true); return; }
+            if (!Core.isHttpUrl(url)) { showToast('Enter a valid HTTP or HTTPS URL', '⚠️', true); return; }
             loadImage(url, false);
         }
 
@@ -995,7 +1032,12 @@
         }
 
         async function loadFromFiles(fileList) {
-            const files = [...fileList].filter((file) => file.type.startsWith('image/') || file.type.startsWith('video/')).slice(0, 10);
+            const validation = Core.validateFiles(fileList);
+            const files = validation.accepted;
+            if (validation.rejected.length) {
+                const first = validation.rejected[0];
+                showToast(`${validation.rejected.length} file${validation.rejected.length > 1 ? 's were' : ' was'} skipped: ${first.name} — ${first.reason}`, '⚠️', true);
+            }
             if (files.length === 0) { showToast('Drop image or video files', '⚠️', true); return; }
             if (files.length === 1) { await loadFromFile(files[0]); return; }
 
@@ -1237,12 +1279,16 @@
             if (!source) { showToast('Load an image first', '⚠️', true); return; }
             const data = {
                 app: 'ImageXpert',
+                schemaVersion: 2,
                 version: '1.1.0',
                 createdAt: new Date().toISOString(),
                 source,
+                sourceType: currentImageData ? (hostedUrl ? 'hosted-local' : 'local') : 'remote',
                 selectedEngines: activeEngines.map((eng) => ({ id: eng, name: SEARCH_ENGINES[eng]?.name || eng })),
                 hashes: lastHashes,
-                batchCount: currentBatch.length
+                preprocessing: document.getElementById('imageInfo').textContent,
+                batchCount: currentBatch.length,
+                dispatches: []
             };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -1380,7 +1426,30 @@
         document.getElementById('panelClose').addEventListener('click', closePanel);
         document.getElementById('helpClose').addEventListener('click', closePanel);
         document.getElementById('overlay').addEventListener('click', closePanel);
-        document.getElementById('clearHistoryBtn').addEventListener('click', () => { history = []; saveHistoryData(); renderHistory(); showToast('Cleared'); });
+        document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+            const button = document.getElementById('clearHistoryBtn');
+            if (historyUndo) {
+                history = historyUndo;
+                historyUndo = null;
+                saveHistoryData();
+                renderHistory();
+                button.innerHTML = '<span>🗑️</span> Clear All History';
+                showToast('History restored');
+                return;
+            }
+            if (history.length === 0) return;
+            if (!confirm(`Clear ${history.length} history record${history.length > 1 ? 's' : ''}?`)) return;
+            historyUndo = history;
+            history = [];
+            saveHistoryData();
+            renderHistory();
+            button.textContent = '↶ Undo Clear History';
+            showToast('History cleared. Undo is available for 10 seconds.', '↶');
+            setTimeout(() => {
+                historyUndo = null;
+                button.innerHTML = '<span>🗑️</span> Clear All History';
+            }, 10000);
+        });
 
         // Settings
         document.getElementById('autoSearchToggle').addEventListener('click', function() { this.classList.toggle('on'); settings.autoSearch = this.classList.contains('on'); saveSettings(); });
@@ -1391,6 +1460,8 @@
         document.getElementById('autoSearchToggle').classList.toggle('on', settings.autoSearch);
         document.getElementById('saveHistoryToggle').classList.toggle('on', settings.saveHistory);
         document.getElementById('noUploadToggle').classList.toggle('on', settings.noUpload);
+        saveSettings();
+        saveHistoryData();
         renderHistory();
 
         const params = new URLSearchParams(window.location.search);
