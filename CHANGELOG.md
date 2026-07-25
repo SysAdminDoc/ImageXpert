@@ -9,6 +9,9 @@ All notable changes to ImageXpert will be documented in this file.
 - Made no-upload mode the safe default for new users and added explicit file intake limits.
 - Added cancellable, timeout-bounded upload and media extraction with visible limits and errors.
 - Replaced popup fan-out with a per-engine queue that exposes consent, blocked, failed, opened, and retry states.
+- Replaced remote and persisted-value HTML interpolation with validated DOM construction.
+- Added keyboard-semantic engine, intake, and settings controls plus focus-contained dialogs and live status announcements.
+- Preserved native page context menus in the userscript and added a restrictive extension-page CSP.
 
 ## [v1.1.0] - 2026-06-27
 

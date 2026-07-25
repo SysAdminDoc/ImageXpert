@@ -584,6 +584,13 @@
         }
 
         .info-box strong { color: var(--accent); }
+        button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+            outline: 3px solid #ffffff;
+            outline-offset: 3px;
+        }
+        .engine-toggle, .toggle-switch, .action-btn, .header-btn, .history-btn, .panel-close { min-height: 44px; }
+        .engine-toggle { color: inherit; font: inherit; }
+        .toggle-switch { border: 0; padding: 0; flex-shrink: 0; }
 
         .privacy-banner, .dispatch-panel {
             margin-top: 14px;
@@ -637,21 +644,21 @@
 
     <main class="main">
         <div class="engines-bar">
-            <div class="engine-toggle active" data-engine="google"><div class="engine-dot"></div><span class="engine-name">Google Lens</span><span class="engine-meta">URL</span></div>
-            <div class="engine-toggle active" data-engine="yandex"><div class="engine-dot"></div><span class="engine-name">Yandex</span><span class="engine-meta">URL</span></div>
-            <div class="engine-toggle" data-engine="bing"><div class="engine-dot"></div><span class="engine-name">Bing</span><span class="engine-meta">URL</span></div>
-            <div class="engine-toggle" data-engine="tineye"><div class="engine-dot"></div><span class="engine-name">TinEye</span><span class="engine-meta">URL</span></div>
-            <div class="engine-toggle" data-engine="saucenao"><div class="engine-dot"></div><span class="engine-name">SauceNAO</span><span class="engine-meta">URL</span></div>
-            <div class="engine-toggle" data-engine="ascii2d"><div class="engine-dot"></div><span class="engine-name">ASCII2D</span><span class="engine-meta">URL</span></div>
-            <div class="engine-toggle" data-engine="tracemoe"><div class="engine-dot"></div><span class="engine-name">TraceMoe</span><span class="engine-meta">URL</span></div>
-            <div class="engine-toggle" data-engine="iqdb"><div class="engine-dot"></div><span class="engine-name">IQDB</span><span class="engine-meta">URL</span></div>
-            <div class="engine-toggle" data-engine="iqdb_danbooru"><div class="engine-dot"></div><span class="engine-name">IQDB Danbooru</span><span class="engine-meta">URL</span></div>
-            <div class="engine-toggle" data-engine="iqdb_gelbooru"><div class="engine-dot"></div><span class="engine-name">IQDB Gelbooru</span><span class="engine-meta">URL</span></div>
-            <div class="engine-toggle" data-engine="iqdb_sankaku"><div class="engine-dot"></div><span class="engine-name">IQDB Sankaku</span><span class="engine-meta">URL</span></div>
-            <div class="engine-toggle" data-engine="pimeyes"><div class="engine-dot"></div><span class="engine-name">PimEyes</span><span class="engine-meta">Consent</span></div>
+            <button type="button" class="engine-toggle active" data-engine="google" aria-pressed="true"><span class="engine-dot"></span><span class="engine-name">Google Lens</span><span class="engine-meta">URL</span></button>
+            <button type="button" class="engine-toggle active" data-engine="yandex" aria-pressed="true"><span class="engine-dot"></span><span class="engine-name">Yandex</span><span class="engine-meta">URL</span></button>
+            <button type="button" class="engine-toggle" data-engine="bing" aria-pressed="false"><span class="engine-dot"></span><span class="engine-name">Bing</span><span class="engine-meta">URL</span></button>
+            <button type="button" class="engine-toggle" data-engine="tineye" aria-pressed="false"><span class="engine-dot"></span><span class="engine-name">TinEye</span><span class="engine-meta">URL</span></button>
+            <button type="button" class="engine-toggle" data-engine="saucenao" aria-pressed="false"><span class="engine-dot"></span><span class="engine-name">SauceNAO</span><span class="engine-meta">URL</span></button>
+            <button type="button" class="engine-toggle" data-engine="ascii2d" aria-pressed="false"><span class="engine-dot"></span><span class="engine-name">ASCII2D</span><span class="engine-meta">URL</span></button>
+            <button type="button" class="engine-toggle" data-engine="tracemoe" aria-pressed="false"><span class="engine-dot"></span><span class="engine-name">TraceMoe</span><span class="engine-meta">URL</span></button>
+            <button type="button" class="engine-toggle" data-engine="iqdb" aria-pressed="false"><span class="engine-dot"></span><span class="engine-name">IQDB</span><span class="engine-meta">URL</span></button>
+            <button type="button" class="engine-toggle" data-engine="iqdb_danbooru" aria-pressed="false"><span class="engine-dot"></span><span class="engine-name">IQDB Danbooru</span><span class="engine-meta">URL</span></button>
+            <button type="button" class="engine-toggle" data-engine="iqdb_gelbooru" aria-pressed="false"><span class="engine-dot"></span><span class="engine-name">IQDB Gelbooru</span><span class="engine-meta">URL</span></button>
+            <button type="button" class="engine-toggle" data-engine="iqdb_sankaku" aria-pressed="false"><span class="engine-dot"></span><span class="engine-name">IQDB Sankaku</span><span class="engine-meta">URL</span></button>
+            <button type="button" class="engine-toggle" data-engine="pimeyes" aria-pressed="false"><span class="engine-dot"></span><span class="engine-name">PimEyes</span><span class="engine-meta">Consent</span></button>
         </div>
 
-        <div class="drop-zone" id="dropZone">
+        <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Choose image or video files">
             <div class="drop-content">
                 <div class="drop-icon">📷</div>
                 <h2 class="drop-title">Drop image — search starts automatically</h2>
@@ -668,7 +675,7 @@
 
             <div class="preview-container">
                 <div class="preview-image-wrap">
-                    <img class="preview-image" id="previewImage" alt="Preview">
+                    <img class="preview-image" id="previewImage" alt="Selected image preview">
                 </div>
                 <div class="preview-actions">
                     <div class="preview-info"><span id="imageInfo">Ready</span></div>
@@ -716,7 +723,7 @@
         </section>
     </main>
 
-    <div class="status-bar" id="statusBar">
+    <div class="status-bar" id="statusBar" role="status" aria-live="polite">
         <div class="spinner"></div>
         <span class="status-text" id="statusText">Processing...</span>
         <button class="history-btn" id="cancelOperationBtn" type="button" hidden>Cancel</button>
@@ -725,13 +732,13 @@
         </div>
     </div>
 
-    <div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMessage">Success!</span></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"><span id="toastIcon">✓</span><span id="toastMessage">Success!</span></div>
     <div class="overlay" id="overlay"></div>
 
-    <div class="panel" id="panel">
+    <div class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="settingsHeading" aria-hidden="true">
         <div class="panel-header">
-            <h2>📂 History & Settings</h2>
-            <button class="panel-close" id="panelClose">✕</button>
+            <h2 id="settingsHeading">📂 History & Settings</h2>
+            <button class="panel-close" id="panelClose" aria-label="Close history and settings">✕</button>
         </div>
         <div class="panel-content">
             <div class="settings-section">
@@ -741,21 +748,21 @@
                         <div class="settings-label">Auto-search on load</div>
                         <div class="settings-desc">Immediately search when image loads</div>
                     </div>
-                    <div class="toggle-switch on" id="autoSearchToggle"></div>
+                    <button type="button" class="toggle-switch on" id="autoSearchToggle" role="switch" aria-label="Auto-search on load" aria-checked="true"></button>
                 </div>
                 <div class="settings-row">
                     <div>
                         <div class="settings-label">Save history</div>
                         <div class="settings-desc">Remember searched images</div>
                     </div>
-                    <div class="toggle-switch on" id="saveHistoryToggle"></div>
+                    <button type="button" class="toggle-switch on" id="saveHistoryToggle" role="switch" aria-label="Save history" aria-checked="true"></button>
                 </div>
                 <div class="settings-row">
                     <div>
                         <div class="settings-label">No-upload dispatch</div>
                         <div class="settings-desc">URL images search directly; local files open manual engine upload pages</div>
                     </div>
-                    <div class="toggle-switch" id="noUploadToggle"></div>
+                    <button type="button" class="toggle-switch" id="noUploadToggle" role="switch" aria-label="No-upload dispatch" aria-checked="false"></button>
                 </div>
             </div>
             <div class="settings-section">
@@ -768,10 +775,10 @@
         </div>
     </div>
 
-    <div class="panel" id="helpPanel">
+    <div class="panel" id="helpPanel" role="dialog" aria-modal="true" aria-labelledby="helpHeading" aria-hidden="true">
         <div class="panel-header">
-            <h2>❓ How it works</h2>
-            <button class="panel-close" id="helpClose">✕</button>
+            <h2 id="helpHeading">❓ How it works</h2>
+            <button class="panel-close" id="helpClose" aria-label="Close help">✕</button>
         </div>
         <div class="panel-content" style="padding: 20px;">
             <div class="info-box">
@@ -847,6 +854,7 @@
         let lastPreprocessing = [];
         let dispatches = [];
         let activeOperation = null;
+        let lastFocusedElement = null;
         const migratedState = Core.migrateState({
             version: localStorage.getItem('rs_schema_version'),
             settings: localStorage.getItem('rs_settings'),
@@ -941,6 +949,7 @@
                 : 'Local files upload to litterbox.catbox.moe for 1 hour before engine dispatch.';
             document.getElementById('privacyModeBtn').textContent = localOnly ? 'Enable external upload' : 'Use local-only mode';
             document.getElementById('noUploadToggle').classList.toggle('on', localOnly);
+            document.getElementById('noUploadToggle').setAttribute('aria-checked', String(localOnly));
         }
 
         function setExternalUploadEnabled(enabled) {
@@ -1331,19 +1340,26 @@
 
         function renderBatch(activeIndex = 0) {
             const strip = document.getElementById('batchStrip');
-            if (currentBatch.length <= 1) { strip.innerHTML = ''; return; }
-            strip.innerHTML = currentBatch.map((item, idx) => `
-                <div class="batch-item ${idx === activeIndex ? 'active' : ''}" data-batch-index="${idx}">
-                    <img src="${item.dataUrl}" alt="">
-                    <span>${escapeHtml(item.name)}</span>
-                </div>
-            `).join('');
-            strip.querySelectorAll('.batch-item').forEach((item) => {
-                item.addEventListener('click', () => {
-                    const idx = Number(item.dataset.batchIndex);
+            strip.replaceChildren();
+            if (currentBatch.length <= 1) return;
+            currentBatch.forEach((item, idx) => {
+                if (!Core.isApprovedImageSource(item.dataUrl)) return;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `batch-item ${idx === activeIndex ? 'active' : ''}`;
+                button.dataset.batchIndex = String(idx);
+                const image = document.createElement('img');
+                image.src = item.dataUrl;
+                image.alt = '';
+                const label = document.createElement('span');
+                const time = Number.isFinite(item.timestamp) ? ` at ${item.timestamp.toFixed(1)}s` : '';
+                label.textContent = `${item.name}${time}`;
+                button.append(image, label);
+                button.addEventListener('click', () => {
                     renderBatch(idx);
                     loadImage(currentBatch[idx].dataUrl, true, true);
                 });
+                strip.append(button);
             });
         }
 
@@ -1543,21 +1559,48 @@
 
         function renderHistory() {
             const list = document.getElementById('historyList');
-            if (history.length === 0) { list.innerHTML = '<div class="history-empty">No searches yet</div>'; return; }
-            list.innerHTML = history.map((item, i) => `
-                <div class="history-item">
-                    <img class="history-thumb" src="${escapeAttr(item.thumb)}" alt="" loading="lazy" onerror="this.style.display='none'">
-                    <div class="history-info">
-                        <div class="history-time">${formatTime(item.time)}</div>
-                        <div class="history-engines">${escapeHtml(item.engines.map(e => SEARCH_ENGINES[e]?.name || e).join(', '))}</div>
-                        <div class="history-actions">
-                            <button class="history-btn" onclick="searchFromHistory(${i})">🔍 Search</button>
-                            <button class="history-btn" onclick="copyHistoryUrl(${i})">🔗 Copy</button>
-                            <button class="history-btn" onclick="removeFromHistory(${i})">🗑️</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+            list.replaceChildren();
+            if (history.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'history-empty';
+                empty.textContent = 'No searches yet';
+                list.append(empty);
+                return;
+            }
+            history.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = 'history-item';
+                if (Core.isApprovedImageSource(item.thumb)) {
+                    const image = document.createElement('img');
+                    image.className = 'history-thumb';
+                    image.src = item.thumb;
+                    image.alt = 'Search history thumbnail';
+                    image.loading = 'lazy';
+                    image.addEventListener('error', () => image.remove());
+                    row.append(image);
+                }
+                const info = document.createElement('div');
+                info.className = 'history-info';
+                const time = document.createElement('div');
+                time.className = 'history-time';
+                time.textContent = formatTime(item.time);
+                const engines = document.createElement('div');
+                engines.className = 'history-engines';
+                engines.textContent = item.engines.map((id) => SEARCH_ENGINES[id]?.name || id).join(', ');
+                const actions = document.createElement('div');
+                actions.className = 'history-actions';
+                [['🔍 Search', () => searchFromHistory(index)], ['🔗 Copy', () => copyHistoryUrl(index)], ['🗑️ Remove', () => removeFromHistory(index)]].forEach(([label, action]) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'history-btn';
+                    button.textContent = label;
+                    button.addEventListener('click', action);
+                    actions.append(button);
+                });
+                info.append(time, engines, actions);
+                row.append(info);
+                list.append(row);
+            });
         }
 
         function formatTime(ts) {
@@ -1572,19 +1615,61 @@
         window.copyHistoryUrl = (i) => { navigator.clipboard.writeText(history[i].url); showToast('URL copied!'); };
         window.removeFromHistory = (i) => { history.splice(i, 1); saveHistoryData(); renderHistory(); showToast('Removed'); };
 
-        function openPanel(id) { document.getElementById(id).classList.add('open'); document.getElementById('overlay').classList.add('show'); if (id === 'panel') renderHistory(); }
-        function closePanel() { document.querySelectorAll('.panel').forEach(p => p.classList.remove('open')); document.getElementById('overlay').classList.remove('show'); }
+        function openPanel(id) {
+            const target = document.getElementById(id);
+            lastFocusedElement = document.activeElement;
+            target.classList.add('open');
+            target.setAttribute('aria-hidden', 'false');
+            document.getElementById('overlay').classList.add('show');
+            if (id === 'panel') renderHistory();
+            target.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')?.focus();
+        }
+
+        function closePanel() {
+            document.querySelectorAll('.panel').forEach((panel) => {
+                panel.classList.remove('open');
+                panel.setAttribute('aria-hidden', 'true');
+            });
+            document.getElementById('overlay').classList.remove('show');
+            lastFocusedElement?.focus?.();
+            lastFocusedElement = null;
+        }
+
+        document.addEventListener('keydown', (event) => {
+            const panel = document.querySelector('.panel.open');
+            if (!panel) return;
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closePanel();
+                return;
+            }
+            if (event.key !== 'Tab') return;
+            const focusable = [...panel.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+                .filter((element) => element.offsetParent !== null);
+            if (focusable.length === 0) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
 
         // Engine toggles
         document.querySelectorAll('.engine-toggle').forEach(t => {
             const eng = t.dataset.engine;
             t.classList.toggle('active', activeEngines.includes(eng));
+            t.setAttribute('aria-pressed', String(activeEngines.includes(eng)));
             t.addEventListener('click', () => {
                 if (!t.classList.contains('active') && SEARCH_ENGINES[eng]?.consentNotice) {
                     const accepted = confirm(`${SEARCH_ENGINES[eng].consentNotice}\n\nAdd this manual-only engine? It will still require a separate click before opening.`);
                     if (!accepted) return;
                 }
                 t.classList.toggle('active');
+                t.setAttribute('aria-pressed', String(t.classList.contains('active')));
                 if (t.classList.contains('active')) { if (!activeEngines.includes(eng)) activeEngines.push(eng); }
                 else activeEngines = activeEngines.filter(e => e !== eng);
                 saveSettings();
@@ -1593,6 +1678,12 @@
 
         // Drop zone
         dropZone.addEventListener('click', (e) => { if (!dropZone.classList.contains('has-image') && !e.target.closest('.preview-actions')) fileInput.click(); });
+        dropZone.addEventListener('keydown', (event) => {
+            if ((event.key === 'Enter' || event.key === ' ') && !dropZone.classList.contains('has-image')) {
+                event.preventDefault();
+                fileInput.click();
+            }
+        });
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
         dropZone.addEventListener('drop', (e) => {
@@ -1690,14 +1781,16 @@
         });
 
         // Settings
-        document.getElementById('autoSearchToggle').addEventListener('click', function() { this.classList.toggle('on'); settings.autoSearch = this.classList.contains('on'); saveSettings(); });
-        document.getElementById('saveHistoryToggle').addEventListener('click', function() { this.classList.toggle('on'); settings.saveHistory = this.classList.contains('on'); saveSettings(); });
+        document.getElementById('autoSearchToggle').addEventListener('click', function() { this.classList.toggle('on'); settings.autoSearch = this.classList.contains('on'); this.setAttribute('aria-checked', String(settings.autoSearch)); saveSettings(); });
+        document.getElementById('saveHistoryToggle').addEventListener('click', function() { this.classList.toggle('on'); settings.saveHistory = this.classList.contains('on'); this.setAttribute('aria-checked', String(settings.saveHistory)); saveSettings(); });
         document.getElementById('noUploadToggle').addEventListener('click', () => setExternalUploadEnabled(settings.noUpload));
 
         // Init
         document.getElementById('autoSearchToggle').classList.toggle('on', settings.autoSearch);
         document.getElementById('saveHistoryToggle').classList.toggle('on', settings.saveHistory);
         document.getElementById('noUploadToggle').classList.toggle('on', settings.noUpload);
+        document.getElementById('autoSearchToggle').setAttribute('aria-checked', String(settings.autoSearch));
+        document.getElementById('saveHistoryToggle').setAttribute('aria-checked', String(settings.saveHistory));
         syncPrivacyUI();
         saveSettings();
         saveHistoryData();

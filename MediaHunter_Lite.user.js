@@ -7,7 +7,8 @@
 // @description  Lightweight media search & download tool. Deep Scan pages for images/videos, Reverse Image Search, Batch Download.
 // @author       Debloated Fork
 // @icon         https://img.icons8.com/?size=100&id=zS0X1cipar3P&format=png&color=000000
-// @match        *://*/*
+// @match        https://*/*
+// @match        http://*/*
 // @grant        GM_addStyle
 // @grant        GM_openInTab
 // @grant        GM_xmlhttpRequest
@@ -139,29 +140,27 @@
     }
 
     function absoluteUrl(url) {
-        try { return new URL(url, location.href).href; }
+        try {
+            const parsed = new URL(url, location.href);
+            return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '';
+        }
         catch (e) { return ''; }
+    }
+
+    function createMediaElement(url, type = 'image') {
+        const clean = absoluteUrl(url);
+        if (!clean) return null;
+        const media = document.createElement(type === 'video' ? 'video' : 'img');
+        media.src = clean;
+        media.referrerPolicy = 'no-referrer';
+        if (type === 'video') media.muted = true;
+        return media;
     }
 
     function openImageXpertFor(url) {
         const clean = absoluteUrl(url);
         if (!clean) { notify('No image URL captured'); return; }
         GM_openInTab(`${IMAGEXPERT_URL}?image=${encodeURIComponent(clean)}`, { active: true });
-    }
-
-    function showImageXpertContextMenu(x, y, url) {
-        document.getElementById('mh-context-menu')?.remove();
-        const menu = document.createElement('button');
-        menu.id = 'mh-context-menu';
-        menu.textContent = 'Search with ImageXpert';
-        menu.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
-        menu.style.top = `${Math.min(y, window.innerHeight - 54)}px`;
-        menu.onclick = () => {
-            menu.remove();
-            openImageXpertFor(url);
-        };
-        document.body.appendChild(menu);
-        setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
     }
 
     GM_registerMenuCommand('Toggle MediaHunter Panel', toggleSuite);
@@ -406,9 +405,7 @@
         const img = e.target?.closest?.('img');
         const src = extractValidImage(img);
         if (!src) return;
-        e.preventDefault();
         lastContextImageUrl = src;
-        showImageXpertContextMenu(e.clientX, e.clientY, src);
     }, true);
 
     document.getElementById('mh-trigger').onclick = toggleSuite;
@@ -472,37 +469,56 @@
         document.getElementById('col-count').innerText = active.items.length;
         list.innerHTML = '';
         active.items.forEach((item, index) => {
+            const safeFull = absoluteUrl(item.full);
+            const safeThumb = absoluteUrl(item.thumb);
+            if (!safeFull || !safeThumb) return;
             const div = document.createElement('div');
             div.className = 'mh-col-item';
-            const isVideo = item.type === 'video' || item.full.match(/\.(mp4|webm|mkv|mov)(\?|$)/i);
-            const isYT = item.type === 'youtube' || item.full.includes('youtube.com') || item.full.includes('youtu.be');
-            let content = isVideo ? `<video src="${item.thumb}" muted referrerpolicy="no-referrer"></video>` : `<img src="${item.thumb}" referrerpolicy="no-referrer">`;
+            const isVideo = item.type === 'video' || safeFull.match(/\.(mp4|webm|mkv|mov)(\?|$)/i);
+            const isYT = item.type === 'youtube' || safeFull.includes('youtube.com') || safeFull.includes('youtu.be');
+            let media = createMediaElement(safeThumb, isVideo ? 'video' : 'image');
             if (isYT) {
-                const vidId = getYoutubeID(item.full);
-                content = `<img src="https://img.youtube.com/vi/${vidId}/mqdefault.jpg" referrerpolicy="no-referrer">`;
+                const vidId = getYoutubeID(safeFull);
+                media = createMediaElement(`https://img.youtube.com/vi/${encodeURIComponent(vidId)}/mqdefault.jpg`);
             }
-            div.innerHTML = `${content}
-                <div class="mh-col-overlay">
-                    <button class="mh-mini-btn btn-dl">⬇ Download</button>
-                    <div class="mh-btn-row">
-                        <button class="mh-mini-btn btn-google">G</button>
-                        <button class="mh-mini-btn btn-yandex">Y</button>
-                    </div>
-                    <button class="mh-mini-btn btn-rmv">✕ Remove</button>
-                </div>`;
+            if (!media) return;
+            const overlay = document.createElement('div');
+            overlay.className = 'mh-col-overlay';
+            const download = document.createElement('button');
+            download.className = 'mh-mini-btn btn-dl';
+            download.textContent = '⬇ Download';
+            const engines = document.createElement('div');
+            engines.className = 'mh-btn-row';
+            const google = document.createElement('button');
+            google.className = 'mh-mini-btn btn-google';
+            google.textContent = 'G';
+            const yandex = document.createElement('button');
+            yandex.className = 'mh-mini-btn btn-yandex';
+            yandex.textContent = 'Y';
+            const remove = document.createElement('button');
+            remove.className = 'mh-mini-btn btn-rmv';
+            remove.textContent = '✕ Remove';
+            engines.append(google, yandex);
+            overlay.append(download, engines, remove);
+            div.append(media, overlay);
             div.onmouseenter = () => {
-                bigPreview.innerHTML = isYT ? `<img src="https://img.youtube.com/vi/${getYoutubeID(item.full)}/maxresdefault.jpg">` :
-                    isVideo ? `<video src="${item.full}" autoplay muted loop referrerpolicy="no-referrer"></video>` :
-                    `<img src="${item.full}" referrerpolicy="no-referrer">`;
+                bigPreview.replaceChildren();
+                const previewUrl = isYT ? `https://img.youtube.com/vi/${encodeURIComponent(getYoutubeID(safeFull))}/maxresdefault.jpg` : safeFull;
+                const preview = createMediaElement(previewUrl, isVideo && !isYT ? 'video' : 'image');
+                if (preview && preview.tagName === 'VIDEO') {
+                    preview.autoplay = true;
+                    preview.loop = true;
+                }
+                if (preview) bigPreview.append(preview);
                 bigPreview.style.display = 'block';
             };
-            div.onmouseleave = () => { bigPreview.style.display = 'none'; bigPreview.innerHTML = ''; };
+            div.onmouseleave = () => { bigPreview.style.display = 'none'; bigPreview.replaceChildren(); };
             div.querySelector('.btn-rmv').onclick = () => removeFromCollection(index);
             div.querySelector('.btn-dl').onclick = () => {
                 if (isYT) {
                     GM_setClipboard(item.full);
                     notify(TEXT.yt_copy);
-                    window.open('https://cobalt.tools/', '_blank');
+                    window.open('https://cobalt.tools/', '_blank', 'noopener,noreferrer');
                 } else {
                     GM_download({ url: item.full, name: item.name, saveAs: false });
                 }
@@ -778,18 +794,27 @@
     }
 
     function renderResult(container, thumb, full, label, type = 'image') {
+        const safeThumb = absoluteUrl(thumb);
+        const safeFull = absoluteUrl(full);
+        if (!safeThumb || !safeFull) return;
         const div = document.createElement('div');
         div.className = 'mh-res-item';
-        div.dataset.full = full;
-        let content = (type === 'video') ?
-            `<video src="${thumb}" referrerpolicy="no-referrer" muted onmouseover="this.play()" onmouseout="this.pause()"></video>` :
-            `<img src="${thumb}" referrerpolicy="no-referrer">`;
-        div.innerHTML = `${content}<div class="mh-badge">${label}</div>`;
+        div.dataset.full = safeFull;
+        const media = createMediaElement(safeThumb, type);
+        if (!media) return;
+        if (media.tagName === 'VIDEO') {
+            media.addEventListener('mouseenter', () => media.play().catch(() => {}));
+            media.addEventListener('mouseleave', () => media.pause());
+        }
+        const badge = document.createElement('div');
+        badge.className = 'mh-badge';
+        badge.textContent = String(label);
+        div.append(media, badge);
         div.onclick = () => {
-            const isVideoFile = full.match(/\.(mp4|webm|mkv|mov|avi|m4v)(\?|$)/i) || full.includes('/video');
-            const isYT = full.includes('youtube.com') || full.includes('youtu.be');
+            const isVideoFile = safeFull.match(/\.(mp4|webm|mkv|mov|avi|m4v)(\?|$)/i) || safeFull.includes('/video');
+            const isYT = safeFull.includes('youtube.com') || safeFull.includes('youtu.be');
             const finalType = isYT ? 'youtube' : (isVideoFile ? 'video' : 'image');
-            addToCollection(full, thumb, finalType);
+            addToCollection(safeFull, safeThumb, finalType);
         };
         container.appendChild(div);
     }
