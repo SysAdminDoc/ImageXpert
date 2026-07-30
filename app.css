@@ -1,5 +1,29 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 [hidden] { display: none !important; }
+html { scroll-padding-block: 18px 88px; }
+.visually-hidden {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+.skip-link {
+    position: fixed;
+    z-index: 2147483647;
+    top: 8px;
+    left: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #071015;
+    transform: translateY(-160%);
+}
+.skip-link:focus { transform: translateY(0); }
 .initially-hidden { display: none; }
 .full-width-action { width: 100%; justify-content: center; }
 .help-content { padding: 20px; }
@@ -1082,3 +1106,12 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
 }
 
 #fileInput, #cameraInput, #engineManifestInput { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

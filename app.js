@@ -100,6 +100,8 @@ function showToast(msg, icon = '✓', err = false) {
     document.getElementById('toastMessage').textContent = msg;
     document.getElementById('toastIcon').textContent = icon;
     t.classList.toggle('error', err);
+    t.setAttribute('role', err ? 'alert' : 'status');
+    t.setAttribute('aria-live', err ? 'assertive' : 'polite');
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3000);
 }
@@ -892,7 +894,8 @@ function beginRegionSelection() {
     canvas.hidden = false;
     canvas.dataset.source = source;
     roiOriginalSource = source;
-    showToast('Drag across the preview to choose a search region.', '↘');
+    canvas.focus();
+    showToast('Drag to choose a region, or use arrow keys and Enter.', '↘');
 }
 
 async function applyRegionSelection(start, end) {
@@ -1102,6 +1105,7 @@ function openPanel(id) {
     const target = document.getElementById(id);
     lastFocusedElement = document.activeElement;
     target.classList.add('open');
+    target.inert = false;
     target.setAttribute('aria-hidden', 'false');
     document.getElementById('overlay').classList.add('show');
     if (id === 'panel') renderHistory();
@@ -1112,6 +1116,7 @@ function closePanel() {
     document.querySelectorAll('.panel').forEach((panel) => {
         panel.classList.remove('open');
         panel.setAttribute('aria-hidden', 'true');
+        panel.inert = true;
     });
     document.getElementById('overlay').classList.remove('show');
     lastFocusedElement?.focus?.();
@@ -1276,6 +1281,55 @@ document.getElementById('roiResetBtn').addEventListener('click', () => {
 {
     const roiCanvas = document.getElementById('roiCanvas');
     let roiStart = null;
+    let keyboardRegion = null;
+    const drawKeyboardRegion = () => {
+        const context = roiCanvas.getContext('2d');
+        context.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
+        context.strokeStyle = '#00ff88';
+        context.lineWidth = 3;
+        context.strokeRect(keyboardRegion.x, keyboardRegion.y, keyboardRegion.width, keyboardRegion.height);
+    };
+    roiCanvas.addEventListener('focus', () => {
+        keyboardRegion = {
+            x: roiCanvas.width * 0.25,
+            y: roiCanvas.height * 0.25,
+            width: roiCanvas.width * 0.5,
+            height: roiCanvas.height * 0.5
+        };
+        drawKeyboardRegion();
+    });
+    roiCanvas.addEventListener('keydown', (event) => {
+        if (!keyboardRegion) return;
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            roiCanvas.hidden = true;
+            roiCanvas.getContext('2d').clearRect(0, 0, roiCanvas.width, roiCanvas.height);
+            document.getElementById('roiBtn').focus();
+            showToast('Region selection cancelled.', '↩');
+            return;
+        }
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            applyRegionSelection(
+                { x: keyboardRegion.x, y: keyboardRegion.y },
+                { x: keyboardRegion.x + keyboardRegion.width, y: keyboardRegion.y + keyboardRegion.height }
+            );
+            return;
+        }
+        const directions = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+        if (!directions[event.key]) return;
+        event.preventDefault();
+        const [horizontal, vertical] = directions[event.key];
+        const step = Math.max(4, Math.round(Math.min(roiCanvas.width, roiCanvas.height) * 0.03));
+        if (event.shiftKey) {
+            keyboardRegion.width = Math.max(24, Math.min(roiCanvas.width - keyboardRegion.x, keyboardRegion.width + horizontal * step));
+            keyboardRegion.height = Math.max(24, Math.min(roiCanvas.height - keyboardRegion.y, keyboardRegion.height + vertical * step));
+        } else {
+            keyboardRegion.x = Math.max(0, Math.min(roiCanvas.width - keyboardRegion.width, keyboardRegion.x + horizontal * step));
+            keyboardRegion.y = Math.max(0, Math.min(roiCanvas.height - keyboardRegion.height, keyboardRegion.y + vertical * step));
+        }
+        drawKeyboardRegion();
+    });
     roiCanvas.addEventListener('pointerdown', (event) => {
         roiCanvas.setPointerCapture(event.pointerId);
         const rect = roiCanvas.getBoundingClientRect();

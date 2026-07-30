@@ -136,6 +136,18 @@ check('engine lifecycle metadata and verifier are shipped', () => {
     assert.match(read('README.md'), /npm run check:engines/);
 });
 
+check('accessibility interaction contracts are test-enforced', () => {
+    const html = read('index.html');
+    assert.match(html, /class="skip-link"/);
+    assert.match(html, /id="roiCanvas"[^>]+tabindex="0"/);
+    assert.match(html, /role="dialog"[^>]+inert/);
+    assert.match(read('app.css'), /prefers-reduced-motion: reduce/);
+    const smoke = read('tests/browser-smoke.js');
+    assert.match(smoke, /Accessibility\.getFullAXTree/);
+    assert.match(smoke, /contrastFailures/);
+    assert.match(smoke, /640, 320/);
+});
+
 check('CI builds and validates unsigned release artifacts deterministically', () => {
     const workflow = read('.github/workflows/ci.yml');
     assert.match(workflow, /runs-on: windows-latest/);

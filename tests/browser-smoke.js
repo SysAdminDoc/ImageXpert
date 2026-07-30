@@ -204,6 +204,7 @@ async function main() {
         await client.send('Page.enable');
         await client.send('Runtime.enable');
         await client.send('Log.enable');
+        await client.send('Accessibility.enable');
         await client.send('Page.navigate', { url: `http://127.0.0.1:${httpPort}/` });
         await waitForApp(client);
 
@@ -296,6 +297,128 @@ async function main() {
             assert.equal(result.exported, true);
             assert.equal(result.hostedCaseHasExpiry, true);
             assert.equal(result.uploadFailure, true);
+        });
+
+        await report('WCAG 2.2 names, states, focus, motion, contrast, and keyboard flows', async () => {
+            await setViewport(client, 1280, 900);
+            const domAudit = await client.evaluate(`(() => {
+                const visible = element => {
+                    const style = getComputedStyle(element);
+                    const rect = element.getBoundingClientRect();
+                    return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+                };
+                const accessibleName = element => element.getAttribute('aria-label')
+                    || (element.id && document.querySelector('label[for="' + CSS.escape(element.id) + '"]')?.textContent)
+                    || element.textContent || element.getAttribute('title') || element.getAttribute('placeholder') || '';
+                const controls = [...document.querySelectorAll('button, input, select, textarea, a[href], summary, [role="button"], [role="switch"]')]
+                    .filter(visible);
+                const unnamed = controls.filter(element => !accessibleName(element).trim()).map(element => element.id || element.outerHTML.slice(0, 80));
+                const invalidSwitches = [...document.querySelectorAll('[role="switch"]')]
+                    .filter(element => !['true', 'false'].includes(element.getAttribute('aria-checked')))
+                    .map(element => element.id);
+                const duplicateIds = [...document.querySelectorAll('[id]')]
+                    .map(element => element.id)
+                    .filter((id, index, ids) => ids.indexOf(id) !== index);
+                const missingAlt = [...document.querySelectorAll('img')].filter(image => !image.hasAttribute('alt')).map(image => image.id);
+                const hiddenDialogsFocusable = [...document.querySelectorAll('[role="dialog"][aria-hidden="true"]')]
+                    .filter(dialog => !dialog.inert).map(dialog => dialog.id);
+                const parse = value => (value.match(/[\\d.]+/g) || []).slice(0, 3).map(Number);
+                const luminance = rgb => {
+                    const channels = rgb.map(value => {
+                        const channel = value / 255;
+                        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+                    });
+                    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+                };
+                const ratio = (foreground, background) => {
+                    const values = [luminance(parse(foreground)), luminance(parse(background))].sort((a, b) => b - a);
+                    return (values[0] + 0.05) / (values[1] + 0.05);
+                };
+                const contrastFailures = ['.workspace-kicker', '.drop-subtitle', '.privacy-banner p', '.engine-meta', '.rail-note']
+                    .flatMap(selector => [...document.querySelectorAll(selector)])
+                    .filter(visible)
+                    .flatMap(element => {
+                        const foreground = getComputedStyle(element).color;
+                        let ancestor = element;
+                        let background = 'rgb(7, 16, 21)';
+                        while (ancestor) {
+                            const candidate = getComputedStyle(ancestor).backgroundColor;
+                            if (candidate && !candidate.endsWith(', 0)') && candidate !== 'transparent') {
+                                background = candidate;
+                                break;
+                            }
+                            ancestor = ancestor.parentElement;
+                        }
+                        const value = ratio(foreground, background);
+                        return value < 4.5 ? [{ selector, ratio: value }] : [];
+                    });
+                document.getElementById('historyBtn').focus();
+                const focusStyle = getComputedStyle(document.getElementById('historyBtn'));
+                return {
+                    unnamed,
+                    invalidSwitches,
+                    duplicateIds,
+                    missingAlt,
+                    hiddenDialogsFocusable,
+                    contrastFailures,
+                    focusVisible: parseFloat(focusStyle.outlineWidth) >= 3
+                };
+            })()`);
+            assert.deepEqual(domAudit.unnamed, []);
+            assert.deepEqual(domAudit.invalidSwitches, []);
+            assert.deepEqual(domAudit.duplicateIds, []);
+            assert.deepEqual(domAudit.missingAlt, []);
+            assert.deepEqual(domAudit.hiddenDialogsFocusable, []);
+            assert.deepEqual(domAudit.contrastFailures, []);
+            assert.equal(domAudit.focusVisible, true);
+            await client.evaluate(`window.__ImageXpertTest.loadFromUrl('javascript:alert(1)')`);
+            assert.deepEqual(await client.evaluate(`({
+                role: document.getElementById('toast').getAttribute('role'),
+                live: document.getElementById('toast').getAttribute('aria-live')
+            })`), { role: 'alert', live: 'assertive' });
+
+            const accessibilityTree = await client.send('Accessibility.getFullAXTree');
+            const interactiveRoles = new Set(['button', 'link', 'textbox', 'switch', 'combobox']);
+            const unnamedAxNodes = accessibilityTree.nodes.filter((node) => (
+                !node.ignored
+                && interactiveRoles.has(node.role?.value)
+                && !String(node.name?.value || '').trim()
+            ));
+            assert.equal(unnamedAxNodes.length, 0, JSON.stringify(unnamedAxNodes.slice(0, 5)));
+
+            await client.evaluate(`document.getElementById('historyBtn').click()`);
+            assert.equal(await client.evaluate(`document.activeElement === document.getElementById('panelClose')`), true);
+            await client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
+            await client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape' });
+            assert.equal(await client.evaluate(`document.getElementById('panel').getAttribute('aria-hidden')`), 'true');
+            assert.equal(await client.evaluate(`document.activeElement === document.getElementById('historyBtn')`), true);
+
+            await client.evaluate(`window.__ImageXpertTest.loadFromUrl(location.origin + '/icon.png')`);
+            await client.evaluate(`document.getElementById('roiBtn').click()`);
+            assert.equal(await client.evaluate(`document.activeElement === document.getElementById('roiCanvas')`), true);
+            await client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight', code: 'ArrowRight' });
+            await client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowRight', code: 'ArrowRight' });
+            await client.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
+            await client.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape' });
+            assert.equal(await client.evaluate(`document.getElementById('roiCanvas').hidden`), true);
+
+            await client.send('Emulation.setEmulatedMedia', {
+                features: [{ name: 'prefers-reduced-motion', value: 'reduce' }]
+            });
+            const motion = await client.evaluate(`getComputedStyle(document.querySelector('.header-btn')).transitionDuration`);
+            assert.ok(parseFloat(motion) <= 0.01, motion);
+            await client.send('Emulation.setEmulatedMedia', { features: [] });
+
+            for (const width of [640, 320]) {
+                await setViewport(client, width, 720);
+                const reflow = await client.evaluate(`({
+                    scrollWidth: document.documentElement.scrollWidth,
+                    innerWidth,
+                    mainVisible: document.getElementById('mainContent').getBoundingClientRect().width > 0
+                })`);
+                assert.ok(reflow.scrollWidth <= reflow.innerWidth, `${width}px reflow overflows`);
+                assert.equal(reflow.mainVisible, true);
+            }
         });
 
         await report('CSP-constrained module shell reloads from the offline cache', async () => {

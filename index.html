@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="./app.css">
 </head>
 <body>
+    <a class="skip-link" href="#mainContent">Skip to workspace</a>
     <header class="header">
         <div class="logo">
             <div class="logo-icon" aria-hidden="true"></div>
@@ -28,7 +29,7 @@
         <button class="history-btn" id="activateUpdateBtn" type="button" hidden>Save and reload</button>
     </div>
 
-    <main class="main">
+    <main class="main" id="mainContent" tabindex="-1">
         <section class="workspace-heading" aria-labelledby="workspaceTitle">
             <div>
                 <p class="workspace-kicker">Private visual intelligence workspace</p>
@@ -58,7 +59,8 @@
             <div class="preview-container">
                 <div class="preview-image-wrap">
                     <img class="preview-image" id="previewImage" alt="Selected image preview">
-                    <canvas class="roi-canvas" id="roiCanvas" aria-label="Drag to select an image region" hidden></canvas>
+                    <canvas class="roi-canvas" id="roiCanvas" role="region" tabindex="0" aria-label="Image region selector" aria-describedby="roiInstructions" hidden></canvas>
+                    <span class="visually-hidden" id="roiInstructions">Drag to select. With a keyboard, use arrow keys to move the selection, Shift plus arrow keys to resize it, Enter to apply, or Escape to cancel.</span>
                 </div>
                 <div class="preview-actions">
                     <div class="preview-info"><span id="imageInfo">Ready</span></div>
@@ -78,6 +80,7 @@
                         <button class="action-btn" id="trimBtn">Trim Bottom Strip</button>
                         <button class="action-btn" id="roiBtn">Select Region</button>
                         <button class="action-btn" id="roiResetBtn" hidden>Reset Region</button>
+                        <label class="visually-hidden" for="textContextInput">Optional Bing text context</label>
                         <input class="context-input" id="textContextInput" type="text" maxlength="120" placeholder="Optional Bing text context">
                     </div>
                     <div class="hash-grid" id="hashGrid"></div>
@@ -90,6 +93,7 @@
         <div class="url-card">
             <label for="urlInput">Paste image URL</label>
             <div class="url-bar">
+                <label class="visually-hidden" for="urlInput">Public image URL</label>
                 <input type="text" class="url-input" id="urlInput" placeholder="https://example.com/image.jpg" data-i18n-placeholder="url.placeholder">
                 <button class="url-btn" id="urlSearchBtn" data-i18n="url.search">Search URL</button>
             </div>
@@ -152,7 +156,7 @@
     <div class="toast" id="toast" role="status" aria-live="polite"><span id="toastIcon">✓</span><span id="toastMessage">Success!</span></div>
     <div class="overlay" id="overlay"></div>
 
-    <div class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="settingsHeading" aria-hidden="true">
+    <div class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="settingsHeading" aria-hidden="true" inert>
         <div class="panel-header">
             <h2 id="settingsHeading" data-i18n="settings.heading">📂 History & Settings</h2>
             <button class="panel-close" id="panelClose" aria-label="Close history and settings">✕</button>
@@ -211,7 +215,7 @@
         </div>
     </div>
 
-    <div class="panel" id="helpPanel" role="dialog" aria-modal="true" aria-labelledby="helpHeading" aria-hidden="true">
+    <div class="panel" id="helpPanel" role="dialog" aria-modal="true" aria-labelledby="helpHeading" aria-hidden="true" inert>
         <div class="panel-header">
             <h2 id="helpHeading" data-i18n="help.heading">❓ How it works</h2>
             <button class="panel-close" id="helpClose" aria-label="Close help">✕</button>
@@ -260,9 +264,9 @@
         </div>
     </div>
 
-    <input type="file" id="fileInput" accept="image/*,video/*" multiple>
-    <input type="file" id="cameraInput" accept="image/*" capture="environment">
-    <input type="file" id="engineManifestInput" accept="application/json,.json">
+    <input type="file" id="fileInput" accept="image/*,video/*" multiple aria-label="Choose images or videos">
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" aria-label="Capture an image">
+    <input type="file" id="engineManifestInput" accept="application/json,.json" aria-label="Import custom engine manifest">
 
     <script src="./app-core.js"></script>
     <script src="./i18n.js"></script>

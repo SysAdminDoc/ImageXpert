@@ -57,7 +57,9 @@ Then visit `http://127.0.0.1:8765/`.
 ## Validate
 
 Run the dependency-free unit, release-contract, desktop browser, and exact
-390px/320px mobile smoke suite:
+390px/320px mobile smoke suite. Browser checks include an accessibility-tree
+scan, accessible names/states, representative contrast, focus restoration,
+keyboard region selection, reduced motion, and 200%/400% reflow:
 
 ```bash
 npm test
