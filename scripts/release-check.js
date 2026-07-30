@@ -156,6 +156,15 @@ check('laptop-height first-viewport contracts are test-enforced', () => {
     assert.match(smoke, /engineCollapsed/);
 });
 
+check('help is task-oriented and derived from engine capabilities', () => {
+    const html = read('index.html');
+    assert.doesNotMatch(html, /Fully Automatic|Always allow popups|\bBest for\b/);
+    assert.match(html, /per-engine queue/);
+    assert.match(html, /CORS/);
+    assert.match(read('modules/engine-controller.mjs'), /engineGuidanceGroups/);
+    assert.match(read('tests/browser-smoke.js'), /Biometric intent/);
+});
+
 check('CI builds and validates unsigned release artifacts deterministically', () => {
     const workflow = read('.github/workflows/ci.yml');
     assert.match(workflow, /runs-on: windows-latest/);

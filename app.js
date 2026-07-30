@@ -2,7 +2,7 @@ import { dataUrlToFile, readFileAsDataUrl } from './modules/media-controller.js'
 import { createDispatchId, escapeAttribute, escapeHtml } from './modules/dispatch-controller.js';
 import { createCasePayload, settingsForStorage } from './modules/storage-case-controller.js';
 import { createUploadConsentMessage, hostedWindow, recipientNames } from './modules/upload-policy-controller.js';
-import { createEngineRegistry, engineControlMetadata } from './modules/engine-controller.mjs';
+import { createEngineRegistry, engineControlMetadata, engineGuidanceGroups } from './modules/engine-controller.mjs';
 import { registerServiceWorker } from './modules/service-worker-controller.js';
 import { formatBytes } from './modules/ui-controller.js';
 import { inspectProvenance } from './modules/provenance-controller.mjs';
@@ -1156,6 +1156,30 @@ function appendCustomEngineControls() {
     document.getElementById('undoEnginesBtn').hidden = !backup;
 }
 
+function renderEngineGuidance() {
+    const container = document.getElementById('engineGuidance');
+    container.replaceChildren();
+    engineGuidanceGroups(SEARCH_ENGINES).forEach((group) => {
+        const section = document.createElement('section');
+        section.className = 'guidance-group';
+        const heading = document.createElement('h4');
+        heading.textContent = group.title;
+        const intent = document.createElement('p');
+        intent.textContent = group.intent;
+        const engines = document.createElement('div');
+        engines.className = 'guidance-engines';
+        group.engines.forEach((engine) => {
+            const item = document.createElement('span');
+            item.className = 'guidance-engine';
+            item.textContent = engine.name;
+            item.title = `${engine.capabilities.join(', ')} • ${engine.state} • verified ${engine.lastVerified}`;
+            engines.append(item);
+        });
+        section.append(heading, intent, engines);
+        container.append(section);
+    });
+}
+
 document.addEventListener('keydown', (event) => {
     const panel = document.querySelector('.panel.open');
     if (!panel) return;
@@ -1180,6 +1204,7 @@ document.addEventListener('keydown', (event) => {
 });
 
 appendCustomEngineControls();
+renderEngineGuidance();
 
 // Engine toggles
 document.querySelectorAll('.engine-toggle').forEach(t => {

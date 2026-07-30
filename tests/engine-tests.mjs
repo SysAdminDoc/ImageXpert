@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
     createEngineRegistry,
     engineControlMetadata,
+    engineGuidanceGroups,
     validateEngineRegistry,
     verifyEngineRegistry
 } from '../modules/engine-controller.mjs';
@@ -18,6 +19,14 @@ for (const engine of Object.values(registry)) {
     assert.match(engine.url('https://example.com/image.jpg'), /^https:/);
 }
 assert.equal(engineControlMetadata({ ...registry.google, state: 'degraded' }).enabled, false);
+const guidance = engineGuidanceGroups(registry);
+assert.deepEqual(guidance.map((group) => group.title), [
+    'Exact copies and source tracing',
+    'Objects, products, and general scenes',
+    'Illustration, artwork, and anime',
+    'Biometric intent'
+]);
+assert.equal(guidance.at(-1).engines[0].id, 'pimeyes');
 
 const networkReport = await verifyEngineRegistry({ google: registry.google }, {
     network: true,
@@ -25,4 +34,4 @@ const networkReport = await verifyEngineRegistry({ google: registry.google }, {
 });
 assert.equal(networkReport.deterministicValid, true);
 assert.equal(networkReport.engines[0].reachability.reachable, false);
-process.stdout.write('ok - engine registry metadata, dispatch contracts, and non-fatal reachability reports\n');
+process.stdout.write('ok - engine registry metadata, guidance, dispatch contracts, and non-fatal reachability reports\n');

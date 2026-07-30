@@ -393,6 +393,22 @@ async function main() {
             assert.equal(await client.evaluate(`document.getElementById('panel').getAttribute('aria-hidden')`), 'true');
             assert.equal(await client.evaluate(`document.activeElement === document.getElementById('historyBtn')`), true);
 
+            const help = await client.evaluate(`(() => {
+                document.getElementById('helpBtn').click();
+                const text = document.getElementById('helpPanel').innerText;
+                document.getElementById('helpClose').click();
+                return text;
+            })()`);
+            assert.match(help, /per-engine queue/i);
+            assert.match(help, /local-only file/i);
+            assert.match(help, /external upload/i);
+            assert.match(help, /CORS/);
+            assert.match(help, /Exact copies and source tracing/);
+            assert.match(help, /Objects, products, and general scenes/);
+            assert.match(help, /Illustration, artwork, and anime/);
+            assert.match(help, /Biometric intent/);
+            assert.doesNotMatch(help, /Fully Automatic|Always allow popups|\bbest\b/i);
+
             await client.evaluate(`window.__ImageXpertTest.loadFromUrl(location.origin + '/icon.png')`);
             await client.evaluate(`document.getElementById('roiBtn').click()`);
             assert.equal(await client.evaluate(`document.activeElement === document.getElementById('roiCanvas')`), true);

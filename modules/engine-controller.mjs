@@ -63,6 +63,26 @@ export async function verifyEngineRegistry(registry, { network = false, fetchFun
     return Object.freeze({ generatedAt: new Date().toISOString(), deterministicValid: contract.valid, engines });
 }
 
+export function engineGuidanceGroups(registry) {
+    const group = (title, intent, ids) => ({
+        title,
+        intent,
+        engines: ids.filter((id) => registry[id]).map((id) => ({
+            id,
+            name: registry[id].name,
+            capabilities: [...registry[id].capabilities],
+            state: registry[id].state,
+            lastVerified: registry[id].lastVerified
+        }))
+    });
+    return [
+        group('Exact copies and source tracing', 'Start with exact-match and broad similar-image indexes when you need earlier copies, alternate sizes, or likely publication sources.', ['tineye', 'yandex']),
+        group('Objects, products, and general scenes', 'Use complementary general indexes for object recognition, product matches, visual similarity, and optional Bing text context.', ['google', 'bing', 'yandex']),
+        group('Illustration, artwork, and anime', 'Use art-source and frame-specific indexes for illustrations, booru matches, and anime scene lookup.', ['saucenao', 'ascii2d', 'iqdb', 'iqdb_danbooru', 'iqdb_gelbooru', 'iqdb_sankaku', 'tracemoe']),
+        group('Biometric intent', 'Face search is manual-only and must be used only with the subject’s consent and applicable legal authority.', ['pimeyes'])
+    ];
+}
+
 export function engineControlMetadata(engine) {
     return {
         title: `${engine.host} • ${engine.capabilities.join(', ')} • ${engine.state} • verified ${engine.lastVerified}`,

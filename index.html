@@ -222,45 +222,28 @@
         </div>
         <div class="panel-content help-content">
             <div class="info-box">
-                <strong>🚀 Fully Automatic!</strong><br>
-                Drop images or a short video, then ImageXpert prepares URLs or extracted frames and opens the selected engines.
+                <strong>Review before dispatch</strong><br>
+                ImageXpert prepares a per-engine queue. You choose when each external search page opens.
             </div>
-            
-            <h3 class="help-heading">How the magic happens:</h3>
+
+            <h3 class="help-heading">Choose the source path</h3>
             <ol class="help-list">
-                <li><strong class="help-strong">You drop/paste images, URLs, or video</strong></li>
-                <li><strong class="help-strong">Local files get hashes and optional preprocessing</strong></li>
-                <li><strong class="help-strong">Video files become searchable keyframes</strong></li>
-                <li><strong class="help-strong">Search engines open</strong> with URLs, hosted files, or manual upload pages</li>
+                <li><strong class="help-strong">Public URL:</strong> the URL is placed directly into supported engine requests.</li>
+                <li><strong class="help-strong">Local-only file:</strong> hashes and edits stay here; manual engine upload pages are queued.</li>
+                <li><strong class="help-strong">External upload:</strong> after session-only consent, the file becomes a public Litterbox URL for one hour and selected engines receive that URL.</li>
+                <li><strong class="help-strong">Video:</strong> selected keyframes become local image tasks and follow the same privacy choice.</li>
             </ol>
 
-            <h3 class="help-heading">For URL images:</h3>
+            <h3 class="help-heading">Browser and site limits</h3>
             <p class="help-copy">
-                If you paste a URL, no upload needed — we pass the URL directly to search engines.
+                Remote sites can block pixel access with CORS. The image may still dispatch by URL, while local hashing, cropping, and provenance inspection remain unavailable for that source.
+            </p>
+            <p class="help-copy">
+                If a tab is blocked, its queue row remains visible with an <strong class="help-accent">Open / retry</strong> action. ImageXpert does not require permanent popup permission.
             </p>
 
-            <h3 class="help-heading">Privacy note:</h3>
-            <p class="help-copy">
-                Uploaded images are stored on <strong class="help-accent">litterbox.catbox.moe</strong> temporarily (1 hour) then auto-deleted. Enable no-upload dispatch to keep local files on this device and open manual engine upload pages instead.
-            </p>
-
-            <h3 class="help-heading">Search engines:</h3>
-            <ul class="help-list">
-                <li><strong class="engine-google">Google Lens</strong> — Best for general recognition</li>
-                <li><strong class="engine-yandex">Yandex</strong> — Great for finding higher res versions</li>
-                <li><strong class="engine-bing">Bing</strong> — Good for products</li>
-                <li><strong class="engine-tineye">TinEye</strong> — Find where image appears online</li>
-                <li><strong class="engine-saucenao">SauceNAO</strong> — Best for anime/artwork</li>
-                <li><strong class="engine-ascii2d">ASCII2D</strong> — Illustration and source lookup</li>
-                <li><strong class="engine-tracemoe">TraceMoe</strong> — Anime frame lookup</li>
-                <li><strong class="engine-iqdb">IQDB variants</strong> — Booru-focused illustration lookup</li>
-                <li><strong class="engine-pimeyes">PimEyes</strong> — Face search; use only with consent</li>
-            </ul>
-
-            <h3 class="help-heading">⚠️ Popup blocker:</h3>
-            <p class="help-copy">
-                If only one tab opens, your browser is blocking popups. <strong class="help-accent">Click the blocked popup icon</strong> in your address bar and select "Always allow popups from this site". Then click "Search Again".
-            </p>
+            <h3 class="help-heading">Choose engines by intent</h3>
+            <div class="guidance-groups" id="engineGuidance"></div>
         </div>
     </div>
 

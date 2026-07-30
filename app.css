@@ -32,6 +32,12 @@ html { scroll-padding-block: 18px 88px; }
 .help-copy { color: var(--text-dim); line-height: 1.6; }
 .help-strong { color: var(--text); }
 .help-accent { color: var(--accent); }
+.guidance-groups { display: grid; gap: 10px; }
+.guidance-group { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.guidance-group h4 { color: var(--text); font-size: 0.9rem; margin-bottom: 4px; }
+.guidance-group p { color: var(--text-dim); font-size: 0.78rem; line-height: 1.5; }
+.guidance-engines { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.guidance-engine { padding: 4px 7px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-dim); font-size: 0.7rem; }
 .engine-google { color: var(--google); }
 .engine-yandex { color: var(--yandex); }
 .engine-bing { color: var(--bing); }
