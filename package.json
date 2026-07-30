@@ -3,8 +3,9 @@
   "version": "1.2.0",
   "private": true,
   "scripts": {
-    "test": "node tests/run-tests.js && node tests/provenance-tests.mjs && node scripts/release-check.js && node tests/browser-smoke.js",
+    "test": "node tests/run-tests.js && node tests/provenance-tests.mjs && node tests/engine-tests.mjs && node scripts/release-check.js && node tests/browser-smoke.js",
     "release:check": "node scripts/release-check.js",
+    "check:engines": "node scripts/check-engines.mjs",
     "package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1"
   }
 }

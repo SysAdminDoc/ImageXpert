@@ -12,6 +12,7 @@ All notable changes to ImageXpert will be documented in this file.
 - Hardened MediaHunter's all-sites boundary with anonymous timeout-bounded requests, strict URL/response/storage limits, reduced cross-origin grants, and hostile-input tests while preserving native context menus.
 - Added a worker-only optional C2PA adapter contract that rejects affected `c2pa-web` releases, enforces byte/pixel/time budgets, and reports signature validity separately from credential trust.
 - Reworked PWA updates around complete versioned caches, explicit save-and-reload activation, offline/update status, failed-install rollback, stale-cache cleanup, and remote-workspace recovery.
+- Moved built-in engines into a validated registry with dated capability, dispatch, privacy, and lifecycle metadata plus deterministic and optional non-fatal live verification commands.
 
 ## [v1.2.0] - 2026-07-25
 

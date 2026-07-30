@@ -67,6 +67,12 @@ Build the unsigned site and Chrome companion archives with `npm run package`.
 The same package and test sequence runs in GitHub Actions on pushes and pull
 requests, and publishes the validated unsigned archives as workflow artifacts.
 
+Run `npm run check:engines` for deterministic registry and URL-construction
+validation. Add `-- --network` for a timeout-bounded public endpoint report;
+reachability failures are reported but do not fail deterministic validation.
+Each built-in engine exposes capabilities, dispatch method, privacy class,
+active/degraded/deprecated state, and an ISO `lastVerified` date.
+
 ## Companion Extension
 
 Load `extension/` as an unpacked Chrome extension. Right-click a web image and choose `Search with ImageXpert`.

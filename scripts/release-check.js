@@ -66,7 +66,7 @@ check('PWA and extension security contracts are valid', () => {
         'dispatch-controller.js',
         'storage-case-controller.js',
         'upload-policy-controller.js',
-        'engine-controller.js',
+        'engine-controller.mjs',
         'service-worker-controller.js',
         'ui-controller.js'
     ]) {
@@ -126,6 +126,16 @@ check('service-worker updates require explicit recoverable activation', () => {
     assert.match(smoke, /restored remote investigation/);
 });
 
+check('engine lifecycle metadata and verifier are shipped', () => {
+    const engineModule = read('modules/engine-controller.mjs');
+    for (const field of ['dispatchMethod', 'privacyClass', 'lastVerified', "state: 'active'"]) {
+        assert.match(engineModule, new RegExp(field));
+    }
+    assert.match(read('package.json'), /"check:engines": "node scripts\/check-engines\.mjs"/);
+    assert.match(read('scripts/check-engines.mjs'), /deterministicValid/);
+    assert.match(read('README.md'), /npm run check:engines/);
+});
+
 check('CI builds and validates unsigned release artifacts deterministically', () => {
     const workflow = read('.github/workflows/ci.yml');
     assert.match(workflow, /runs-on: windows-latest/);
@@ -165,7 +175,7 @@ check('release archives match the current version and allowlists', () => {
         'index.html',
         'manifest.webmanifest',
         'modules/dispatch-controller.js',
-        'modules/engine-controller.js',
+        'modules/engine-controller.mjs',
         'modules/media-controller.js',
         'modules/provenance-controller.mjs',
         'modules/service-worker-controller.js',

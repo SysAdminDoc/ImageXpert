@@ -2,7 +2,7 @@ import { dataUrlToFile, readFileAsDataUrl } from './modules/media-controller.js'
 import { createDispatchId, escapeAttribute, escapeHtml } from './modules/dispatch-controller.js';
 import { createCasePayload, settingsForStorage } from './modules/storage-case-controller.js';
 import { createUploadConsentMessage, hostedWindow, recipientNames } from './modules/upload-policy-controller.js';
-import { engineControlMetadata } from './modules/engine-controller.js';
+import { createEngineRegistry, engineControlMetadata } from './modules/engine-controller.mjs';
 import { registerServiceWorker } from './modules/service-worker-controller.js';
 import { formatBytes } from './modules/ui-controller.js';
 import { inspectProvenance } from './modules/provenance-controller.mjs';
@@ -11,20 +11,7 @@ const Core = window.ImageXpertCore;
 const I18n = window.ImageXpertI18n;
 const activeLocale = I18n.apply(document, navigator.language);
 const APP_VERSION = '1.2.0';
-const SEARCH_ENGINES = {
-    google: { name: 'Google Lens', host: 'lens.google.com', input: 'url-or-manual', capabilities: ['general', 'products'], maintenance: 'active', manualUrl: 'https://lens.google.com/', url: (u) => `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(u)}` },
-    yandex: { name: 'Yandex', host: 'yandex.com', input: 'url-or-manual', capabilities: ['general', 'similar'], maintenance: 'active', manualUrl: 'https://yandex.com/images/', url: (u) => `https://yandex.com/images/search?rpt=imageview&url=${encodeURIComponent(u)}` },
-    bing: { name: 'Bing', host: 'bing.com', input: 'url-or-manual', capabilities: ['general', 'products', 'text-context'], maintenance: 'active', supportsText: true, manualUrl: 'https://www.bing.com/images/search?form=HDRSC3', url: (u, context = '') => `https://www.bing.com/images/search?view=detailv2&iss=sbi&form=SBIVSP&sbisrc=UrlPaste&q=${encodeURIComponent(`imgurl:${u}${context ? ` ${context}` : ''}`)}` },
-    tineye: { name: 'TinEye', host: 'tineye.com', input: 'url-or-manual', capabilities: ['exact-match'], maintenance: 'active', manualUrl: 'https://tineye.com/', url: (u) => `https://tineye.com/search?url=${encodeURIComponent(u)}` },
-    saucenao: { name: 'SauceNAO', host: 'saucenao.com', input: 'url-or-manual', capabilities: ['art-source'], maintenance: 'active', manualUrl: 'https://saucenao.com/', url: (u) => `https://saucenao.com/search.php?url=${encodeURIComponent(u)}` },
-    ascii2d: { name: 'ASCII2D', host: 'ascii2d.net', input: 'url-or-manual', capabilities: ['art-source'], maintenance: 'active', manualUrl: 'https://ascii2d.net/', url: (u) => `https://ascii2d.net/search/url/${encodeURIComponent(u)}` },
-    tracemoe: { name: 'TraceMoe', host: 'trace.moe', input: 'url-or-manual', capabilities: ['anime-frame'], maintenance: 'active', manualUrl: 'https://trace.moe/', url: (u) => `https://trace.moe/?url=${encodeURIComponent(u)}` },
-    iqdb: { name: 'IQDB', host: 'iqdb.org', input: 'url-or-manual', capabilities: ['art-similar'], maintenance: 'active', manualUrl: 'https://iqdb.org/', url: (u) => `https://iqdb.org/?url=${encodeURIComponent(u)}` },
-    iqdb_danbooru: { name: 'IQDB Danbooru', host: 'danbooru.iqdb.org', input: 'url-or-manual', capabilities: ['art-similar'], maintenance: 'active', manualUrl: 'https://danbooru.iqdb.org/', url: (u) => `https://danbooru.iqdb.org/?url=${encodeURIComponent(u)}` },
-    iqdb_gelbooru: { name: 'IQDB Gelbooru', host: 'gelbooru.iqdb.org', input: 'url-or-manual', capabilities: ['art-similar'], maintenance: 'active', manualUrl: 'https://gelbooru.iqdb.org/', url: (u) => `https://gelbooru.iqdb.org/?url=${encodeURIComponent(u)}` },
-    iqdb_sankaku: { name: 'IQDB Sankaku', host: 'sankaku.iqdb.org', input: 'url-or-manual', capabilities: ['art-similar'], maintenance: 'active', manualUrl: 'https://sankaku.iqdb.org/', url: (u) => `https://sankaku.iqdb.org/?url=${encodeURIComponent(u)}` },
-    pimeyes: { name: 'PimEyes', host: 'pimeyes.com', input: 'manual-only', capabilities: ['face-search'], maintenance: 'active', consentClass: 'biometric', manualUrl: 'https://pimeyes.com/en', manualOnly: true, consentNotice: 'PimEyes is face search. Use only with consent.', url: () => 'https://pimeyes.com/en' }
-};
+const SEARCH_ENGINES = createEngineRegistry();
 const BUILTIN_ENGINE_IDS = Object.freeze(Object.keys(SEARCH_ENGINES));
 let customEngineManifest = { schemaVersion: 1, engines: [] };
 let customEngineBackup = null;
@@ -41,8 +28,11 @@ function installCustomEngineManifest(manifest) {
             name: record.displayName,
             host: new URL(record.manualUrl).host,
             input: 'url-or-manual',
+            dispatchMethod: 'url-template',
+            privacyClass: record.consentClass === 'biometric' ? 'biometric-manual' : 'custom-remote-url',
             capabilities: record.capabilities,
-            maintenance: 'active',
+            state: 'active',
+            lastVerified: new Date().toISOString().slice(0, 10),
             consentClass: record.consentClass,
             consentNotice: record.consentClass === 'biometric' ? `${record.displayName} is marked as biometric search. Use only with consent.` : '',
             manualUrl: record.manualUrl,
@@ -335,7 +325,7 @@ function queueSelectedEngines(searchUrl, manual = false, sourceId = 'single', ap
     const queued = activeEngines.map((engineId) => {
         const engine = SEARCH_ENGINES[engineId];
         const consentRequired = Boolean(engine?.consentNotice);
-        const unavailable = engine?.maintenance !== 'active';
+        const unavailable = engine?.state !== 'active';
         return {
             id: createDispatchId(engineId),
             engineId,
@@ -343,7 +333,7 @@ function queueSelectedEngines(searchUrl, manual = false, sourceId = 'single', ap
             target: manual || engine.manualOnly ? engine.manualUrl : engine.url(searchUrl, engine.supportsText ? context : ''),
             status: unavailable ? 'failed' : consentRequired ? 'consent-required' : (manual || engine.manualOnly ? 'manual-only' : 'queued'),
             timestamp: new Date().toISOString(),
-            error: unavailable ? `Engine is ${engine.maintenance}` : consentRequired ? engine.consentNotice : (context && !engine.supportsText ? 'Text context unsupported; image-only query queued.' : '')
+            error: unavailable ? `Engine is ${engine.state}` : consentRequired ? engine.consentNotice : (context && !engine.supportsText ? 'Text context unsupported; image-only query queued.' : '')
         };
     });
     dispatches = append ? [...dispatches, ...queued] : queued;
