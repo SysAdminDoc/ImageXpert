@@ -29,6 +29,15 @@ The site remains dependency-free and no-build: `index.html` loads same-origin CS
 - Local file facts and a no-upload C2PA adapter with explicit unsupported,
   no-manifest, invalid-signature, and valid-signature states.
 
+### Optional C2PA adapter
+
+ImageXpert never downloads provenance code at runtime. A deployment may provide
+a same-origin `globalThis.ImageXpertC2PAAdapter` with contract version `1`,
+`@contentauth/c2pa-web` version `0.8.3` or newer, worker execution, abort support,
+and `inspect(bytes, { signal })`. Older `c2pa-web` versions are rejected. Local
+inspection is capped at 25 MB, 40 million pixels, and 5 seconds; signature
+validity and credential trust are reported as separate fields.
+
 ## Use
 
 Open [ImageXpert](https://sysadmindoc.github.io/ImageXpert/) or serve the repo locally:

@@ -7,6 +7,7 @@ const OFFLINE_ASSETS = Object.freeze([
   './app-core.js',
   './i18n.js',
   './modules/media-controller.js',
+  './modules/provenance-controller.mjs',
   './modules/dispatch-controller.js',
   './modules/storage-case-controller.js',
   './modules/upload-policy-controller.js',

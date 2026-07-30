@@ -10,6 +10,7 @@ All notable changes to ImageXpert will be documented in this file.
 - Added deterministic GitHub Actions gates for tests, unsigned packaging, archive validation, and artifact publication.
 - Split the static app into same-origin CSS, a module entry point, and focused media, dispatch, storage/case, upload-policy, engine, service-worker, and UI controllers under a restrictive Content Security Policy.
 - Hardened MediaHunter's all-sites boundary with anonymous timeout-bounded requests, strict URL/response/storage limits, reduced cross-origin grants, and hostile-input tests while preserving native context menus.
+- Added a worker-only optional C2PA adapter contract that rejects affected `c2pa-web` releases, enforces byte/pixel/time budgets, and reports signature validity separately from credential trust.
 
 ## [v1.2.0] - 2026-07-25
 

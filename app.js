@@ -5,6 +5,7 @@ import { createUploadConsentMessage, hostedWindow, recipientNames } from './modu
 import { engineControlMetadata } from './modules/engine-controller.js';
 import { registerServiceWorker } from './modules/service-worker-controller.js';
 import { formatBytes } from './modules/ui-controller.js';
+import { inspectProvenance } from './modules/provenance-controller.mjs';
 
 const Core = window.ImageXpertCore;
 const I18n = window.ImageXpertI18n;
@@ -70,7 +71,7 @@ let lastHashes = null;
 let originalHashes = null;
 let roiOriginalSource = '';
 let currentFileMetadata = null;
-let currentProvenance = { status: 'not-checked', detail: 'Load a local file to inspect provenance.' };
+let currentProvenance = { status: 'not-checked', signatureValidity: 'unknown', trust: 'unknown', detail: 'Load a local file to inspect provenance.' };
 let lastPreprocessing = [];
 let dispatches = [];
 let activeOperation = null;
@@ -165,7 +166,7 @@ function renderFileMetadata() {
         ['Size', formatBytes(currentFileMetadata.size, activeLocale)],
         ['Dimensions', currentFileMetadata.width && currentFileMetadata.height ? `${currentFileMetadata.width} × ${currentFileMetadata.height}` : 'Pending'],
         ['Modified', currentFileMetadata.lastModified ? new Date(currentFileMetadata.lastModified).toLocaleDateString(activeLocale) : 'Unknown'],
-        ['C2PA provenance', `${currentProvenance.status}: ${currentProvenance.detail}`]
+        ['C2PA provenance', `${currentProvenance.status}; signature ${currentProvenance.signatureValidity || 'unknown'}; trust ${currentProvenance.trust || 'unknown'} — ${currentProvenance.detail}`]
     ];
     for (const [label, value] of entries) {
         const card = document.createElement('div');
@@ -180,20 +181,10 @@ function renderFileMetadata() {
 }
 
 async function inspectLocalProvenance(file) {
-    const parser = globalThis.ImageXpertC2PAParser;
-    if (!parser || typeof parser.inspect !== 'function') {
-        currentProvenance = { status: 'unsupported', detail: 'Optional pinned C2PA parser is not installed.' };
-        renderFileMetadata();
-        return;
-    }
-    try {
-        const result = await parser.inspect(await file.arrayBuffer());
-        if (!result?.manifest) currentProvenance = { status: 'no-manifest', detail: 'No C2PA manifest was found.' };
-        else if (result.valid === true) currentProvenance = { status: 'valid-signature', detail: 'Manifest signature validated; this is not proof that image content is authentic.' };
-        else currentProvenance = { status: 'invalid-signature', detail: String(result.reason || 'Manifest validation failed.').slice(0, 160) };
-    } catch (error) {
-        currentProvenance = { status: 'invalid-or-unreadable', detail: String(error.message || 'Parser failed.').slice(0, 160) };
-    }
+    currentProvenance = await inspectProvenance(file, {
+        dimensions: currentFileMetadata || {},
+        adapter: globalThis.ImageXpertC2PAAdapter
+    });
     renderFileMetadata();
 }
 
@@ -206,7 +197,7 @@ function inspectLocalFile(file, dimensions = {}) {
         width: dimensions.width,
         height: dimensions.height
     };
-    currentProvenance = { status: 'checking', detail: 'Inspecting locally.' };
+    currentProvenance = { status: 'checking', signatureValidity: 'unknown', trust: 'unknown', detail: 'Inspecting locally.' };
     renderFileMetadata();
     inspectLocalProvenance(file);
 }
@@ -992,7 +983,7 @@ function clearImage() {
     originalHashes = null;
     roiOriginalSource = '';
     currentFileMetadata = null;
-    currentProvenance = { status: 'not-checked', detail: 'Load a local file to inspect provenance.' };
+    currentProvenance = { status: 'not-checked', signatureValidity: 'unknown', trust: 'unknown', detail: 'Load a local file to inspect provenance.' };
     lastPreprocessing = [];
     dispatches = [];
     previewImage.src = '';

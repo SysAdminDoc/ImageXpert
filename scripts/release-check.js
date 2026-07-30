@@ -62,6 +62,7 @@ check('PWA and extension security contracts are valid', () => {
     assert.match(html, /<script type="module" src="\.\/app\.js"><\/script>/);
     for (const moduleName of [
         'media-controller.js',
+        'provenance-controller.mjs',
         'dispatch-controller.js',
         'storage-case-controller.js',
         'upload-policy-controller.js',
@@ -99,6 +100,15 @@ check('userscript privileges match the documented least-privilege boundary', () 
     assert.doesNotMatch(userscript, /GM_xmlhttpRequest\(\{/);
     assert.match(userscript, /anonymous: true/);
     assert.match(read('README.md'), /MediaHunter userscript permissions/);
+});
+
+check('optional C2PA adapter stays local and rejects affected SDK contracts', () => {
+    const provenance = read('modules/provenance-controller.mjs');
+    assert.match(provenance, /MINIMUM_C2PA_WEB_VERSION = '0\.8\.3'/);
+    assert.match(provenance, /adapter\.execution !== 'worker'/);
+    assert.match(provenance, /adapter\.abortable !== true/);
+    assert.doesNotMatch(read('index.html'), /<script[^>]+src="https:/);
+    assert.match(read('README.md'), /ImageXpertC2PAAdapter/);
 });
 
 check('CI builds and validates unsigned release artifacts deterministically', () => {
@@ -142,6 +152,7 @@ check('release archives match the current version and allowlists', () => {
         'modules/dispatch-controller.js',
         'modules/engine-controller.js',
         'modules/media-controller.js',
+        'modules/provenance-controller.mjs',
         'modules/service-worker-controller.js',
         'modules/storage-case-controller.js',
         'modules/ui-controller.js',
