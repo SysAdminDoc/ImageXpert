@@ -488,6 +488,28 @@ async function main() {
             });
         }
 
+        await report('diagnostics expose runtime health while redacting investigation data', async () => {
+            const result = await client.evaluate(`(async () => {
+                const hooks = window.__ImageXpertTest;
+                hooks.setHistory([{
+                    id: 'sensitive',
+                    url: 'https://secret.example/private-file.jpg?query=person-name',
+                    thumb: 'data:image/png;base64,AAAA',
+                    time: Date.now(),
+                    engines: ['google'],
+                    sourceType: 'remote'
+                }]);
+                const report = await hooks.getSupportReport();
+                return { report, serialized: JSON.stringify(report) };
+            })()`);
+            assert.equal(result.report.runtime.appVersion, '1.2.0');
+            assert.equal(result.report.runtime.schemaVersion, 3);
+            assert.equal(result.report.runtime.historyRecordCount, 1);
+            assert.ok(Array.isArray(result.report.runtime.cacheVersions));
+            assert.equal(Object.hasOwn(result.report.runtime.storage, 'quota'), true);
+            assert.doesNotMatch(result.serialized, /secret\.example|private-file|person-name|data:image/i);
+        });
+
         await report('case import previews, restores safe state, and rolls back invalid input', async () => {
             const result = await client.evaluate(`(() => {
                 const hooks = window.__ImageXpertTest;

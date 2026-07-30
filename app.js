@@ -74,6 +74,8 @@ let dispatches = [];
 let activeOperation = null;
 let lastFocusedElement = null;
 let diagnostics = [];
+let runtimeDiagnostics = null;
+let serviceWorkerState = 'initializing';
 const migratedState = Core.migrateState({
     version: localStorage.getItem('rs_schema_version'),
     settings: localStorage.getItem('rs_settings'),
@@ -140,11 +142,64 @@ function recordDiagnostic({ engine = '', phase, startedAt = performance.now(), e
     renderDiagnostics();
 }
 
-function supportReport() {
+async function collectRuntimeDiagnostics() {
+    const availability = history.reduce((counts, item) => {
+        const state = Core.historyAvailability(item);
+        counts[state] = (counts[state] || 0) + 1;
+        return counts;
+    }, { active: 0, expired: 0, 'expiry-unknown': 0, remote: 0 });
+    let storage = { usage: null, quota: null, persisted: null };
+    try {
+        const estimate = await navigator.storage?.estimate?.();
+        storage = {
+            usage: Number.isFinite(estimate?.usage) ? estimate.usage : null,
+            quota: Number.isFinite(estimate?.quota) ? estimate.quota : null,
+            persisted: typeof navigator.storage?.persisted === 'function' ? await navigator.storage.persisted() : null
+        };
+    } catch {
+        // StorageManager may be unavailable or denied.
+    }
+    let cacheVersions = [];
+    try {
+        cacheVersions = (await caches.keys()).filter((name) => name.startsWith('imagexpert-')).sort();
+    } catch {
+        // CacheStorage may be unavailable or denied.
+    }
+    let worker = { supported: 'serviceWorker' in navigator, controlled: Boolean(navigator.serviceWorker?.controller), waiting: false };
+    try {
+        const registration = await navigator.serviceWorker?.getRegistration?.();
+        worker = { ...worker, waiting: Boolean(registration?.waiting), installing: Boolean(registration?.installing) };
+    } catch {
+        // Service-worker details are advisory.
+    }
+    runtimeDiagnostics = {
+        appVersion: APP_VERSION,
+        schemaVersion: Core.STORAGE_VERSION,
+        online: navigator.onLine,
+        updateState: serviceWorkerState,
+        serviceWorker: worker,
+        cacheVersions,
+        storage,
+        customEngineCount: customEngineManifest.engines.length,
+        hostedRecords: {
+            active: availability.active,
+            expired: availability.expired,
+            expiryUnknown: availability['expiry-unknown']
+        },
+        remoteRecordCount: availability.remote,
+        historyRecordCount: history.length
+    };
+    renderDiagnostics();
+    return runtimeDiagnostics;
+}
+
+async function supportReport() {
+    const runtime = await collectRuntimeDiagnostics();
     return {
         app: 'ImageXpert',
         version: APP_VERSION,
         generatedAt: new Date().toISOString(),
+        runtime,
         capabilities: {
             online: navigator.onLine,
             serviceWorker: 'serviceWorker' in navigator,
@@ -152,16 +207,30 @@ function supportReport() {
             clipboard: Boolean(navigator.clipboard),
             userAgent: navigator.userAgent.replace(/\([^)]*\)/g, '(redacted)')
         },
-        events: diagnostics
+        events: diagnostics.map(({ timestamp, version, engine, phase, latencyMs, code }) => ({
+            timestamp,
+            version,
+            engine,
+            phase,
+            latencyMs,
+            code
+        }))
     };
 }
 
 function renderDiagnostics() {
     const list = document.getElementById('diagnosticsList');
     if (!list) return;
-    list.textContent = diagnostics.length
+    const summary = runtimeDiagnostics ? [
+        `App ${runtimeDiagnostics.appVersion} • schema ${runtimeDiagnostics.schemaVersion} • ${runtimeDiagnostics.online ? 'online' : 'offline'} • update ${runtimeDiagnostics.updateState}`,
+        `Cache: ${runtimeDiagnostics.cacheVersions.join(', ') || 'none'} • worker ${runtimeDiagnostics.serviceWorker.controlled ? 'controlled' : 'uncontrolled'}${runtimeDiagnostics.serviceWorker.waiting ? ' • update waiting' : ''}`,
+        `Storage: ${runtimeDiagnostics.storage.usage === null ? 'unavailable' : formatBytes(runtimeDiagnostics.storage.usage, activeLocale)} / ${runtimeDiagnostics.storage.quota === null ? 'unavailable' : formatBytes(runtimeDiagnostics.storage.quota, activeLocale)} • persistent ${runtimeDiagnostics.storage.persisted === null ? 'unknown' : runtimeDiagnostics.storage.persisted}`,
+        `Records: ${runtimeDiagnostics.historyRecordCount} total • ${runtimeDiagnostics.hostedRecords.active} hosted active • ${runtimeDiagnostics.hostedRecords.expired} expired • ${runtimeDiagnostics.hostedRecords.expiryUnknown} expiry unknown • ${runtimeDiagnostics.customEngineCount} custom engines`
+    ].join('\n') : '';
+    const events = diagnostics.length
         ? diagnostics.slice(-20).map((event) => `${event.timestamp} ${event.phase} ${event.engine || '-'} ${event.code} ${event.latencyMs}ms ${event.detail}`).join('\n')
         : tr('diagnostics.empty');
+    list.textContent = [summary, events].filter(Boolean).join('\n\n');
 }
 
 function renderFileMetadata() {
@@ -1235,7 +1304,10 @@ function openPanel(id) {
     target.inert = false;
     target.setAttribute('aria-hidden', 'false');
     document.getElementById('overlay').classList.add('show');
-    if (id === 'panel') renderHistory();
+    if (id === 'panel') {
+        renderHistory();
+        collectRuntimeDiagnostics().catch(() => {});
+    }
     target.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')?.focus();
 }
 
@@ -1573,11 +1645,11 @@ document.getElementById('panelClose').addEventListener('click', closePanel);
 document.getElementById('helpClose').addEventListener('click', closePanel);
 document.getElementById('overlay').addEventListener('click', closePanel);
 document.getElementById('copyDiagnosticsBtn').addEventListener('click', async () => {
-    await navigator.clipboard.writeText(JSON.stringify(supportReport(), null, 2));
+    await navigator.clipboard.writeText(JSON.stringify(await supportReport(), null, 2));
     showToast('Redacted support report copied.');
 });
-document.getElementById('exportDiagnosticsBtn').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(supportReport(), null, 2)], { type: 'application/json' });
+document.getElementById('exportDiagnosticsBtn').addEventListener('click', async () => {
+    const blob = new Blob([JSON.stringify(await supportReport(), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -1711,6 +1783,7 @@ function renderLifecycleState(state) {
         activated: 'lifecycle.activated',
         'install-failed': 'lifecycle.installFailed'
     };
+    serviceWorkerState = state;
     lifecycleBanner.dataset.state = state;
     lifecycleText.textContent = tr(messages[state] || 'lifecycle.ready');
     lifecycleBanner.hidden = !messages[state] || ['online'].includes(state);
@@ -1778,6 +1851,7 @@ if (['127.0.0.1', 'localhost'].includes(location.hostname)) {
             performBatchSearch,
             exportCaseFile,
             importCasePayload: (payload) => importCasePayload(payload, () => true),
+            getSupportReport: supportReport,
             getCasePayload: () => structuredClone(buildCasePayload()),
             openDispatch,
             setSettings: (next) => {
