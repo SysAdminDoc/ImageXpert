@@ -488,6 +488,62 @@ async function main() {
             });
         }
 
+        await report('history filters compose and export only redacted portable metadata', async () => {
+            const result = await client.evaluate(`(async () => {
+                const hooks = window.__ImageXpertTest;
+                hooks.setHistory([
+                    {
+                        id: 'remote-opened',
+                        url: 'https://secret.example/person-name.jpg?query=private',
+                        thumb: 'data:image/png;base64,AAAA',
+                        time: Date.now() - 1000,
+                        engines: ['google'],
+                        sourceType: 'remote',
+                        dispatchOutcomes: [{ engineId: 'google', status: 'opened' }]
+                    },
+                    {
+                        id: 'hosted-failed',
+                        url: 'https://host.example/private-file.jpg',
+                        thumb: '',
+                        time: Date.now() - 100000,
+                        engines: ['bing'],
+                        sourceType: 'hosted',
+                        expiresAt: Date.now() - 1,
+                        dispatchOutcomes: [{ engineId: 'bing', status: 'failed' }]
+                    }
+                ]);
+                const search = document.getElementById('historySearch');
+                search.value = 'Google Lens';
+                search.dispatchEvent(new Event('input', { bubbles: true }));
+                const queryCount = document.querySelectorAll('#historyList .history-item').length;
+                search.value = '';
+                search.dispatchEvent(new Event('input', { bubbles: true }));
+                for (const [id, value] of [
+                    ['historySourceFilter', 'hosted'],
+                    ['historyEngineFilter', 'bing'],
+                    ['historyOutcomeFilter', 'failed'],
+                    ['historyExpiryFilter', 'expired']
+                ]) {
+                    const control = document.getElementById(id);
+                    control.value = value;
+                    control.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                const composedCount = document.querySelectorAll('#historyList .history-item').length;
+                let captured;
+                const originalCreate = URL.createObjectURL;
+                URL.createObjectURL = (blob) => { captured = blob; return 'blob:history-smoke'; };
+                document.getElementById('exportHistoryBtn').click();
+                URL.createObjectURL = originalCreate;
+                const exported = captured ? await captured.text() : '';
+                return { queryCount, composedCount, exported };
+            })()`);
+            assert.equal(result.queryCount, 1);
+            assert.equal(result.composedCount, 1);
+            assert.match(result.exported, /"kind": "redacted-history"/);
+            assert.doesNotMatch(result.exported, /secret\.example|person-name|private-file|data:image|https?:/i);
+            assert.match(result.exported, /"status": "failed"/);
+        });
+
         await report('portable settings import is data-only and durably reversible', async () => {
             const result = await client.evaluate(`(() => {
                 const hooks = window.__ImageXpertTest;

@@ -200,6 +200,43 @@
             </div>
             <div class="settings-section">
                 <div class="settings-section-title" data-i18n="history.heading">📂 Search History</div>
+                <div class="history-filters">
+                    <label class="visually-hidden" for="historySearch" data-i18n="history.search">Search history</label>
+                    <input class="context-input" id="historySearch" type="search" maxlength="120" placeholder="Search history" data-i18n-placeholder="history.search">
+                    <label class="visually-hidden" for="historyDateFilter" data-i18n="history.date">Any date</label>
+                    <select id="historyDateFilter">
+                        <option value="0" data-i18n="history.date">Any date</option>
+                        <option value="86400000" data-i18n="history.dateDay">Past 24 hours</option>
+                        <option value="604800000" data-i18n="history.dateWeek">Past 7 days</option>
+                        <option value="2592000000" data-i18n="history.dateMonth">Past 30 days</option>
+                    </select>
+                    <label class="visually-hidden" for="historySourceFilter" data-i18n="history.source">Any source</label>
+                    <select id="historySourceFilter">
+                        <option value="all" data-i18n="history.source">Any source</option>
+                        <option value="remote" data-i18n="history.sourceRemote">Remote URL</option>
+                        <option value="hosted" data-i18n="history.sourceHosted">Hosted file</option>
+                    </select>
+                    <label class="visually-hidden" for="historyEngineFilter" data-i18n="history.engine">Any engine</label>
+                    <select id="historyEngineFilter"><option value="all" data-i18n="history.engine">Any engine</option></select>
+                    <label class="visually-hidden" for="historyOutcomeFilter" data-i18n="history.outcome">Any outcome</label>
+                    <select id="historyOutcomeFilter">
+                        <option value="all" data-i18n="history.outcome">Any outcome</option>
+                        <option value="opened" data-i18n="history.opened">Opened</option>
+                        <option value="failed" data-i18n="history.failed">Failed</option>
+                        <option value="blocked" data-i18n="history.blocked">Blocked</option>
+                        <option value="queued" data-i18n="history.queued">Queued</option>
+                        <option value="manual-only" data-i18n="history.manual">Manual only</option>
+                    </select>
+                    <label class="visually-hidden" for="historyExpiryFilter" data-i18n="history.expiry">Any availability</label>
+                    <select id="historyExpiryFilter">
+                        <option value="all" data-i18n="history.expiry">Any availability</option>
+                        <option value="active" data-i18n="history.hostedActive">Hosted active</option>
+                        <option value="expired" data-i18n="history.hostedExpired">Hosted expired</option>
+                        <option value="expiry-unknown" data-i18n="history.expiryUnknown">Expiry unknown</option>
+                        <option value="remote" data-i18n="history.sourceRemote">Remote URL</option>
+                    </select>
+                    <button class="history-btn" type="button" id="exportHistoryBtn" data-i18n="history.export">Export redacted history</button>
+                </div>
                 <div class="history-list" id="historyList"><div class="history-empty" data-i18n="history.empty">No searches yet</div></div>
             </div>
             <div class="settings-section">

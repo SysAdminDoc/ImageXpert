@@ -20,6 +20,8 @@ The site remains dependency-free and no-build: `index.html` loads same-origin CS
 - Temporary hosted history records carry explicit expiry metadata. Expired or
   legacy-unknown links cannot be redispatched and instead offer local-file or
   manual-engine recovery.
+- Local history search and composable date/source/engine/outcome/expiry filters,
+  with a versioned metadata export that redacts URLs, thumbnails, filenames, and queries.
 - Tampermonkey userscript and Chrome MV3 companion extension for right-click image handoff.
 - Persistent English and Spanish UI selection in Settings, plus an expansion-test locale for layout QA.
 - Versioned JSON case export/import with a pre-import review, schema migration,

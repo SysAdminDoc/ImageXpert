@@ -803,6 +803,27 @@ body {
     font: inherit;
 }
 .locale-select:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+.history-filters {
+    display: grid;
+    grid-template-columns: minmax(160px, 1.5fr) repeat(4, minmax(105px, 1fr));
+    gap: 8px;
+    margin: 10px 0 14px;
+}
+.history-filters select,
+.history-filters input {
+    min-width: 0;
+    padding: 8px 10px;
+    color: var(--text-primary);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+}
+.history-filters #exportHistoryBtn { grid-column: 1 / -1; justify-self: start; }
+@media (max-width: 700px) {
+    .history-filters { grid-template-columns: 1fr 1fr; }
+    .history-filters > :first-of-type { grid-column: 1 / -1; }
+}
 .settings-label { font-weight: 500; }
 .settings-desc { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; }
 

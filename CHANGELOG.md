@@ -20,6 +20,7 @@ All notable changes to ImageXpert will be documented in this file.
 - Added transactional, schema-versioned case import with strict size/URL/hash/timestamp validation, migration preview, expired-host protection, and resumable remote investigations.
 - Expanded redacted diagnostics with app/schema/cache/update state, storage quota and persistence, custom-engine totals, and active/expired hosted-record counts.
 - Added portable settings and custom-engine bundles with conflict previews, strict data-only validation, safe local-only defaults, and durable one-click rollback.
+- Added local history search plus date, source, engine, dispatch-outcome, and expiry filters with a versioned redacted metadata export.
 
 ## [v1.2.0] - 2026-07-25
 

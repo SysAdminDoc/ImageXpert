@@ -18,6 +18,7 @@ import {
     settingsBundleChanges,
     validateSettingsBundle
 } from './modules/settings-portability-controller.js';
+import { createRedactedHistoryExport, filterHistory } from './modules/history-controller.js';
 
 const Core = window.ImageXpertCore;
 const I18n = window.ImageXpertI18n;
@@ -94,6 +95,7 @@ let settings = migratedState.settings;
 let activeEngines = migratedState.engines;
 let history = migratedState.history;
 let historyUndo = null;
+const historyFilters = { query: '', maximumAgeMs: 0, source: 'all', engine: 'all', outcome: 'all', expiry: 'all' };
 let externalUploadAuthorized = false;
 
 const dropZone = document.getElementById('dropZone');
@@ -497,6 +499,7 @@ function addHistoryRecord(searchUrl, thumb) {
         thumb: Core.boundedThumbnail(thumb),
         time: now,
         engines: [...activeEngines],
+        dispatchOutcomes: dispatches.slice(-activeEngines.length).map(({ engineId, status }) => ({ engineId, status })),
         sourceType,
         hostedAt: sourceType === 'hosted' ? (hostedAt || now) : null,
         expiresAt: sourceType === 'hosted' ? (hostedExpiresAt || now + Core.HOSTED_RETENTION_MS) : null
@@ -1197,14 +1200,19 @@ function clearImage() {
 function renderHistory() {
     const list = document.getElementById('historyList');
     list.replaceChildren();
-    if (history.length === 0) {
+    const visibleHistory = filterHistory(history, historyFilters, {
+        engineNames: Object.fromEntries(Object.entries(SEARCH_ENGINES).map(([id, engine]) => [id, engine.name])),
+        availabilityFor: Core.historyAvailability
+    });
+    if (visibleHistory.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'history-empty';
-        empty.textContent = tr('history.empty');
+        empty.textContent = tr(history.length ? 'history.noMatches' : 'history.empty');
         list.append(empty);
         return;
     }
-    history.forEach((item, index) => {
+    visibleHistory.forEach((item) => {
+        const index = history.indexOf(item);
         const availability = Core.historyAvailability(item);
         const transientUnavailable = ['expired', 'expiry-unknown'].includes(availability);
         const row = document.createElement('div');
@@ -1262,6 +1270,55 @@ function renderHistory() {
         row.append(info);
         list.append(row);
     });
+}
+
+function populateHistoryEngineFilter() {
+    const select = document.getElementById('historyEngineFilter');
+    const selected = select.value || historyFilters.engine;
+    select.replaceChildren();
+    const all = document.createElement('option');
+    all.value = 'all';
+    all.textContent = tr('history.engine');
+    select.append(all);
+    Object.entries(SEARCH_ENGINES)
+        .sort(([, left], [, right]) => left.name.localeCompare(right.name, activeLocale === 'qps' ? 'en' : activeLocale))
+        .forEach(([id, engine]) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = engine.name;
+            select.append(option);
+        });
+    select.value = [...select.options].some((option) => option.value === selected) ? selected : 'all';
+}
+
+function updateHistoryFilters() {
+    historyFilters.query = document.getElementById('historySearch').value;
+    historyFilters.maximumAgeMs = Number(document.getElementById('historyDateFilter').value);
+    historyFilters.source = document.getElementById('historySourceFilter').value;
+    historyFilters.engine = document.getElementById('historyEngineFilter').value;
+    historyFilters.outcome = document.getElementById('historyOutcomeFilter').value;
+    historyFilters.expiry = document.getElementById('historyExpiryFilter').value;
+    renderHistory();
+}
+
+function exportRedactedHistory() {
+    const visibleHistory = filterHistory(history, historyFilters, {
+        engineNames: Object.fromEntries(Object.entries(SEARCH_ENGINES).map(([id, engine]) => [id, engine.name])),
+        availabilityFor: Core.historyAvailability
+    });
+    const payload = createRedactedHistoryExport(visibleHistory, {
+        appVersion: APP_VERSION,
+        filters: historyFilters,
+        availabilityFor: Core.historyAvailability
+    });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `imagexpert_history_${Date.now()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast(activeLocale === 'es' ? 'Historial censurado exportado.' : 'Redacted history exported.');
 }
 
 function formatTime(ts) {
@@ -1346,6 +1403,7 @@ function applyLocale(locale, persist = true) {
     renderFileMetadata();
     renderBatch();
     renderDispatchQueue();
+    populateHistoryEngineFilter();
     renderHistory();
     renderEngineGuidance();
     appendCustomEngineSummary();
@@ -1737,6 +1795,10 @@ document.getElementById('clearDiagnosticsBtn').addEventListener('click', () => {
     diagnostics = [];
     renderDiagnostics();
 });
+for (const id of ['historySearch', 'historyDateFilter', 'historySourceFilter', 'historyEngineFilter', 'historyOutcomeFilter', 'historyExpiryFilter']) {
+    document.getElementById(id).addEventListener(id === 'historySearch' ? 'input' : 'change', updateHistoryFilters);
+}
+document.getElementById('exportHistoryBtn').addEventListener('click', exportRedactedHistory);
 document.getElementById('importEnginesBtn').addEventListener('click', () => document.getElementById('engineManifestInput').click());
 document.getElementById('engineManifestInput').addEventListener('change', async (event) => {
     const file = event.target.files[0];
@@ -1856,6 +1918,7 @@ document.getElementById('autoSearchToggle').setAttribute('aria-checked', String(
 document.getElementById('saveHistoryToggle').setAttribute('aria-checked', String(settings.saveHistory));
 syncPrivacyUI();
 updateEngineSelectionCount();
+populateHistoryEngineFilter();
 if (matchMedia('(max-width: 768px), (min-width: 769px) and (max-height: 800px)').matches) {
     document.getElementById('enginePicker').removeAttribute('open');
 }

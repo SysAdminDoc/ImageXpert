@@ -15,6 +15,7 @@
     const MAX_IMAGE_DIMENSION = 16_384;
     const MAX_VIDEO_SECONDS = 300;
     const MAX_VIDEO_FRAMES = 4;
+    const DISPATCH_OUTCOMES = new Set(['queued', 'manual-only', 'consent-required', 'opened', 'blocked', 'failed']);
 
     function safeParse(value, fallback) {
         if (typeof value !== 'string' || value.length === 0) return fallback;
@@ -64,6 +65,13 @@
                 thumb: boundedThumbnail(item.thumb),
                 time: Number(item.time || item.added || Date.now()),
                 engines: Array.isArray(item.engines) ? item.engines.filter((id) => allowed.has(id)) : [],
+                dispatchOutcomes: Array.isArray(item.dispatchOutcomes)
+                    ? item.dispatchOutcomes.slice(0, 25).flatMap((outcome) => {
+                        const engineId = String(outcome?.engineId || '');
+                        const status = String(outcome?.status || '');
+                        return allowed.has(engineId) && DISPATCH_OUTCOMES.has(status) ? [{ engineId, status }] : [];
+                    })
+                    : [],
                 sourceType,
                 hostedAt,
                 expiresAt
