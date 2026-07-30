@@ -29,7 +29,7 @@ const engine = {
 
 test('portable settings bundles preserve safe preferences and custom engines', () => {
     const bundle = createSettingsBundle({
-        appVersion: '1.2.0',
+        appVersion: '1.3.0',
         settings: { autoSearch: true, saveHistory: false, noUpload: false, locale: 'es', externalUploadConsent: true },
         activeEngines: ['google', 'example'],
         customEngines: { schemaVersion: 1, engines: [engine] },
@@ -46,7 +46,7 @@ test('portable settings bundles preserve safe preferences and custom engines', (
 
 test('portable settings bundles reject privilege-bearing and executable fields', () => {
     const base = createSettingsBundle({
-        appVersion: '1.2.0',
+        appVersion: '1.3.0',
         settings: {},
         activeEngines: ['google'],
         customEngines: { schemaVersion: 1, engines: [] }

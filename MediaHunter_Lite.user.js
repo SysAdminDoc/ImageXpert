@@ -2,7 +2,7 @@
 // @name         MediaHunter Lite
 // @name:es      MediaHunter Lite
 // @namespace    https://tampermonkey.net/
-// @version      1.2.0
+// @version      1.3.0
 // @updateURL      https://raw.githubusercontent.com/SysAdminDoc/ImageXpert/main/MediaHunter_Lite.user.js
 // @downloadURL    https://raw.githubusercontent.com/SysAdminDoc/ImageXpert/main/MediaHunter_Lite.user.js
 // @description  Lightweight media search & download tool. Deep Scan pages for images/videos, Reverse Image Search, Batch Download.
@@ -193,7 +193,7 @@
     const TEXT = /^es(?:-|$)/i.test(navigator.language) ? TEXT_ES : TEXT_EN;
 
     const IMAGEXPERT_URL = 'https://sysadmindoc.github.io/ImageXpert/';
-    const MEDIAHUNTER_VERSION = '1.2.0';
+    const MEDIAHUNTER_VERSION = '1.3.0';
     let lastContextImageUrl = '';
     const diagnostics = [];
 

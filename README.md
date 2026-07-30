@@ -1,6 +1,6 @@
 # ImageXpert
 
-![Version](https://img.shields.io/badge/version-v1.2.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-JavaScript-lightgrey)
+![Version](https://img.shields.io/badge/version-v1.3.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-JavaScript-lightgrey)
 
 ImageXpert is a static reverse image search hub for fast attribution work. Drop images, paste image URLs, or load short videos; the app dispatches selected engines, computes local hashes, and keeps prior searches in browser storage.
 

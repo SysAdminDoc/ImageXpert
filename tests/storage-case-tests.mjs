@@ -18,7 +18,7 @@ function test(name, fn) {
 const base = {
     app: 'ImageXpert',
     schemaVersion: 3,
-    version: '1.2.0',
+    version: '1.3.0',
     createdAt: '2026-07-29T12:00:00.000Z',
     source: 'https://images.example/photo.jpg',
     sourceType: 'remote',

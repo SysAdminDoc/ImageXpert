@@ -25,7 +25,7 @@ const Core = window.ImageXpertCore;
 const I18n = window.ImageXpertI18n;
 let activeLocale = I18n.getLocale(localStorage, navigator.language);
 I18n.apply(document, activeLocale);
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 const SEARCH_ENGINES = createEngineRegistry();
 const BUILTIN_ENGINE_IDS = Object.freeze(Object.keys(SEARCH_ENGINES));
 let customEngineManifest = { schemaVersion: 1, engines: [] };

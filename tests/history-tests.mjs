@@ -48,7 +48,7 @@ test('history filters compose query, date, source, engine, outcome, and expiry',
 
 test('history export is portable metadata with investigation content redacted', () => {
     const payload = createRedactedHistoryExport(records, {
-        appVersion: '1.2.0',
+        appVersion: '1.3.0',
         filters: { query: 'person-name', source: 'all' },
         now: new Date('2026-07-29T12:00:00.000Z'),
         availabilityFor: (record) => core.historyAvailability(record, now)

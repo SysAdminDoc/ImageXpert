@@ -8,6 +8,7 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
+const appVersion = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')).version;
 const httpPort = 18765 + (process.pid % 1000);
 const debugPort = 19765 + (process.pid % 1000);
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'imagexpert-smoke-'));
@@ -47,7 +48,7 @@ const server = http.createServer((request, response) => {
     response.setHeader('Content-Type', mimeTypes[path.extname(target)] || 'application/octet-stream');
     if (relative === 'sw.js' && serviceWorkerCacheVariant) {
         let worker = fs.readFileSync(target, 'utf8').replace(
-            "'imagexpert-v1.2.0'",
+            `'imagexpert-v${appVersion}'`,
             `'imagexpert-test-${serviceWorkerCacheVariant}'`
         );
         if (serviceWorkerCacheVariant === 'broken-install') {
@@ -634,7 +635,7 @@ async function main() {
                 const report = await hooks.getSupportReport();
                 return { report, serialized: JSON.stringify(report) };
             })()`);
-            assert.equal(result.report.runtime.appVersion, '1.2.0');
+            assert.equal(result.report.runtime.appVersion, appVersion);
             assert.equal(result.report.runtime.schemaVersion, 3);
             assert.equal(result.report.runtime.historyRecordCount, 1);
             assert.ok(Array.isArray(result.report.runtime.cacheVersions));
@@ -850,7 +851,7 @@ async function main() {
             await waitForServiceWorkerController(client);
             await waitForExpression(client, `Promise.all([
                 caches.has('imagexpert-test-next-version'),
-                caches.has('imagexpert-v1.2.0')
+                caches.has('imagexpert-v${appVersion}')
             ]).then(([next, previous]) => next && !previous)`, 'new service-worker cache');
             await waitForExpression(client, `document.getElementById('urlInput')?.value.endsWith('/icon.png')`, 'restored remote investigation');
             const recovered = await client.evaluate(`(async () => ({
