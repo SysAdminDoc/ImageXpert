@@ -53,6 +53,55 @@ test('history rejects non-network URLs and oversized data thumbnails', () => {
     assert.equal(result[0].thumb, '');
 });
 
+test('hosted history tracks active, expired, and legacy unknown availability', () => {
+    const now = 1_000_000;
+    const records = core.normalizeHistory([
+        {
+            url: 'https://litterbox.example/active.jpg',
+            sourceType: 'hosted',
+            hostedAt: now - 1_000,
+            expiresAt: now + 1_000,
+            engines: ['google']
+        },
+        {
+            url: 'https://litterbox.example/expired.jpg',
+            sourceType: 'hosted',
+            hostedAt: now - core.HOSTED_RETENTION_MS,
+            expiresAt: now,
+            engines: ['google']
+        },
+        {
+            url: 'https://litterbox.example/legacy.jpg',
+            sourceType: 'hosted',
+            engines: ['google']
+        },
+        {
+            url: 'https://example.com/remote.jpg',
+            sourceType: 'remote',
+            engines: ['google']
+        }
+    ], ['google']);
+    assert.equal(core.historyAvailability(records[0], now), 'active');
+    assert.equal(core.historyAvailability(records[1], now), 'expired');
+    assert.equal(core.historyAvailability(records[2], now), 'expiry-unknown');
+    assert.equal(core.historyAvailability(records[3], now), 'remote');
+});
+
+test('state migration forgets external-upload authorization and starts local-only', () => {
+    const state = core.migrateState({
+        version: '2',
+        settings: '{"saveHistory":true,"noUpload":false,"externalUploadConsent":true}',
+        engines: '["google"]',
+        history: '[{"url":"https://litterbox.example/legacy.jpg","sourceType":"hosted"}]'
+    }, ['google'], {
+        settings: { autoSearch: false, saveHistory: true, noUpload: true },
+        engines: ['google']
+    });
+    assert.equal(state.settings.noUpload, true);
+    assert.equal(Object.hasOwn(state.settings, 'externalUploadConsent'), false);
+    assert.equal(state.history[0].expiresAt, null);
+});
+
 test('file validation reports every discarded input', () => {
     const files = Array.from({ length: 12 }, (_, index) => ({
         name: `${index}.png`,

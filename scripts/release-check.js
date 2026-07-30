@@ -65,6 +65,17 @@ check('PWA and extension security contracts are valid', () => {
     assert.doesNotMatch(sw, /MediaHunter_Lite\.user\.js/);
 });
 
+check('CI builds and validates unsigned release artifacts deterministically', () => {
+    const workflow = read('.github/workflows/ci.yml');
+    assert.match(workflow, /runs-on: windows-latest/);
+    assert.match(workflow, /node-version: 22\.18\.0/);
+    assert.match(workflow, /run: npm run package/);
+    assert.match(workflow, /run: npm test/);
+    assert.match(workflow, /uses: actions\/upload-artifact@v4/);
+    const browserSmoke = read('tests/browser-smoke.js');
+    assert.doesNotMatch(browserSmoke, /litterbox\.catbox\.moe\/resources\/internals/);
+});
+
 check('engine and external URL schemes are HTTPS', () => {
     const combined = `${read('index.html')}\n${read('extension/background.js')}\n${read('MediaHunter_Lite.user.js')}`;
     const urls = combined.match(/https?:\/\/[^\s"'`)]+/g) || [];

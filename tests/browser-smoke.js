@@ -49,6 +49,7 @@ class CdpClient {
     constructor(url) {
         this.nextId = 1;
         this.pending = new Map();
+        this.events = [];
         this.socket = new WebSocket(url);
         this.ready = new Promise((resolve, reject) => {
             this.socket.addEventListener('open', resolve, { once: true });
@@ -56,7 +57,11 @@ class CdpClient {
         });
         this.socket.addEventListener('message', (event) => {
             const message = JSON.parse(event.data);
-            if (!message.id || !this.pending.has(message.id)) return;
+            if (!message.id) {
+                this.events.push(message);
+                return;
+            }
+            if (!this.pending.has(message.id)) return;
             const { resolve, reject } = this.pending.get(message.id);
             this.pending.delete(message.id);
             if (message.error) reject(new Error(message.error.message));
@@ -81,6 +86,12 @@ class CdpClient {
     close() {
         this.socket.close();
     }
+
+    runtimeErrors() {
+        return this.events
+            .filter((event) => ['Runtime.exceptionThrown', 'Log.entryAdded'].includes(event.method))
+            .map((event) => event.params?.exceptionDetails?.exception?.description || event.params?.entry?.text || event.method);
+    }
 }
 
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -99,6 +110,18 @@ async function waitForPage() {
     throw new Error('Timed out waiting for browser debugging endpoint');
 }
 
+async function waitForApp(client) {
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+        try {
+            if (await client.evaluate('Boolean(window.__ImageXpertTest)')) return;
+        } catch {
+            // Runtime context is being replaced during navigation.
+        }
+        await sleep(100);
+    }
+    throw new Error(`Timed out waiting for app initialization: ${client.runtimeErrors().join(' | ')}`);
+}
+
 async function setViewport(client, width, height) {
     await client.send('Emulation.setDeviceMetricsOverride', {
         width,
@@ -107,7 +130,7 @@ async function setViewport(client, width, height) {
         mobile: width <= 768
     });
     await client.send('Page.reload', { ignoreCache: true });
-    await sleep(500);
+    await waitForApp(client);
 }
 
 function report(name, fn) {
@@ -129,7 +152,7 @@ async function main() {
         '--no-default-browser-check',
         `--remote-debugging-port=${debugPort}`,
         `--user-data-dir=${profile}`,
-        `http://127.0.0.1:${httpPort}/`
+        'about:blank'
     ], { stdio: 'ignore', windowsHide: true });
 
     let client;
@@ -138,7 +161,9 @@ async function main() {
         client = new CdpClient(page.webSocketDebuggerUrl);
         await client.send('Page.enable');
         await client.send('Runtime.enable');
-        await sleep(300);
+        await client.send('Log.enable');
+        await client.send('Page.navigate', { url: `http://127.0.0.1:${httpPort}/` });
+        await waitForApp(client);
 
         await report('desktop URL, local file, history, export, popup, and failure flows', async () => {
             await setViewport(client, 1280, 900);
@@ -154,16 +179,42 @@ async function main() {
                 await hooks.performSearch(location.origin + '/icon.png', false);
                 document.getElementById('openQueuedBtn').click();
                 const afterUrl = hooks.getState();
+                const persistedSettings = JSON.parse(localStorage.getItem('rs_settings'));
+                hooks.setHistory([{
+                    id: 'expired-host',
+                    url: 'https://litterbox.example/expired.png',
+                    thumb: '',
+                    time: Date.now() - 7200000,
+                    engines: ['google'],
+                    sourceType: 'hosted',
+                    hostedAt: Date.now() - 7200000,
+                    expiresAt: Date.now() - 3600000
+                }]);
+                const expiredHistory = document.getElementById('historyList').innerText;
+                const expiredHasSearch = [...document.querySelectorAll('#historyList button')].some(button => button.textContent.includes('Search'));
                 hooks.setSettings({ noUpload: true, externalUploadConsent: false });
                 const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+Xb7zAAAAAElFTkSuQmCC'), c => c.charCodeAt(0));
+                const dataUrl = 'data:image/png;base64,' + btoa(String.fromCharCode(...png));
+                let consentFetches = 0;
+                window.fetch = async () => { consentFetches += 1; return new Response('https://litterbox.example/upload.png'); };
+                window.confirm = () => false;
+                hooks.setSettings({ noUpload: false, externalUploadConsent: false });
+                await hooks.performSearch(dataUrl, true);
+                const consentCancellationTransfers = consentFetches;
                 await hooks.loadFromFile(new File([png], 'one.png', { type: 'image/png' }), true);
                 const localLoaded = document.getElementById('dropZone').classList.contains('has-image');
                 await hooks.loadFromFile(new File(['not-video'], 'bad.mp4', { type: 'video/mp4' }), true);
                 const videoFailure = document.getElementById('toastMessage').textContent;
+                const videoMetadata = document.getElementById('fileMetadata').innerText;
+                window.confirm = () => true;
+                window.fetch = async () => new Response('https://litterbox.example/active.png');
+                hooks.setSettings({ noUpload: false, externalUploadConsent: true });
+                await hooks.loadFromFile(new File([png], 'hosted.png', { type: 'image/png' }), true);
+                await hooks.performSearch(dataUrl, true);
+                const hostedCase = hooks.getCasePayload();
                 hooks.exportCaseFile();
                 window.fetch = async () => { throw new TypeError('network unavailable'); };
                 hooks.setSettings({ noUpload: false, externalUploadConsent: true });
-                const dataUrl = 'data:image/png;base64,' + btoa(String.fromCharCode(...png));
                 await hooks.performSearch(dataUrl, true);
                 const finalState = hooks.getState();
                 return {
@@ -172,24 +223,36 @@ async function main() {
                     queued: afterUrl.dispatches.length,
                     blocked: afterUrl.dispatches.every(item => item.status === 'blocked'),
                     history: afterUrl.history.length,
+                    persistedLocalOnly: persistedSettings.noUpload === true && !Object.hasOwn(persistedSettings, 'externalUploadConsent'),
+                    expiredHistory,
+                    expiredHasSearch,
+                    consentCancellationTransfers,
                     localLoaded,
-                    metadata: document.getElementById('fileMetadata').innerText,
+                    metadata: videoMetadata,
                     videoFailure,
                     exported: clicked.some(name => String(name).includes('imagexpert_case_')),
+                    hostedCaseHasExpiry: hostedCase.sourceType === 'hosted-local'
+                        && Date.parse(hostedCase.expiresAt) - Date.parse(hostedCase.hostedAt) === 3600000,
                     uploadFailure: finalState.diagnostics.some(event => event.phase === 'upload' && event.code !== 'ok')
                 };
             })()`);
-            assert.equal(result.error, undefined);
+            if (result.error) result.runtimeErrors = client.runtimeErrors();
+            assert.equal(result.error, undefined, JSON.stringify(result.runtimeErrors || []));
             assert.match(result.title, /^ImageXpert/);
             assert.equal(result.semanticButtons, 12);
             assert.equal(result.queued, 2);
             assert.equal(result.blocked, true);
             assert.ok(result.history >= 1);
+            assert.equal(result.persistedLocalOnly, true);
+            assert.match(result.expiredHistory, /expired/i);
+            assert.equal(result.expiredHasSearch, false);
+            assert.equal(result.consentCancellationTransfers, 0);
             assert.equal(result.localLoaded, true);
             assert.match(result.metadata, /Type[\s\S]*video\/mp4/);
             assert.match(result.metadata, /C2PA provenance[\s\S]*unsupported/);
             assert.match(result.videoFailure, /decoded|readable|video|extract/i);
             assert.equal(result.exported, true);
+            assert.equal(result.hostedCaseHasExpiry, true);
             assert.equal(result.uploadFailure, true);
         });
 
@@ -205,6 +268,7 @@ async function main() {
                         innerWidth,
                         scrollWidth: document.documentElement.scrollWidth,
                         pickerCollapsed: !picker.open,
+                        hooksPresent: Boolean(window.__ImageXpertTest),
                         cameraVisible: getComputedStyle(camera).display !== 'none',
                         privacyVisible: privacy.getBoundingClientRect().top < innerHeight && privacy.getBoundingClientRect().bottom > 0,
                         undersizedTargets: visibleTargets.filter((button) => {
@@ -215,7 +279,8 @@ async function main() {
                 })()`);
                 assert.equal(layout.innerWidth, width);
                 assert.ok(layout.scrollWidth <= width, `scroll width ${layout.scrollWidth} exceeds ${width}`);
-                assert.equal(layout.pickerCollapsed, true);
+                assert.equal(layout.hooksPresent, true, JSON.stringify(layout));
+                assert.equal(layout.pickerCollapsed, true, JSON.stringify(layout));
                 assert.equal(layout.cameraVisible, true);
                 assert.equal(layout.privacyVisible, true);
                 assert.equal(layout.undersizedTargets, 0);

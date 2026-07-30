@@ -5,6 +5,9 @@ All notable changes to ImageXpert will be documented in this file.
 ## Unreleased
 
 - Reimagined the app as a responsive visual-investigation workbench with a dominant intake canvas, visible local-only guardrail, compact engine control rail, and clearer URL-search hierarchy.
+- Added one-hour hosted-link expiry metadata, safe legacy handling, and reselect/manual recovery instead of redispatching stale URLs.
+- Made external-upload authorization session-only with complete public-file, IP metadata, recipient-engine, and host-policy disclosure.
+- Added deterministic GitHub Actions gates for tests, unsigned packaging, archive validation, and artifact publication.
 
 ## [v1.2.0] - 2026-07-25
 

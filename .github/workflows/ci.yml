@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+
+      - name: Build unsigned release archives
+        run: npm run package
+
+      - name: Run deterministic validation
+        run: npm test
+
+      - name: Upload validated archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: imagexpert-${{ github.sha }}
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 14

@@ -785,6 +785,10 @@
         }
 
         .history-item:hover { background: #1a1a1a; }
+        .history-item.expired {
+            border: 1px solid rgba(255, 95, 95, 0.45);
+            background: rgba(255, 95, 95, 0.06);
+        }
 
         .history-thumb {
             width: 60px;
@@ -798,6 +802,8 @@
         .history-info { flex: 1; min-width: 0; }
         .history-time { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 4px; }
         .history-engines { font-size: 0.8rem; color: var(--text-dim); }
+        .history-availability { font-size: 0.72rem; color: var(--attention); margin-top: 4px; }
+        .history-item.expired .history-availability { color: #ff8a8a; }
         .history-actions { display: flex; gap: 6px; margin-top: 8px; }
 
         .history-btn {
@@ -930,6 +936,7 @@
         .privacy-banner > div:not(.privacy-icon) { min-width: 0; }
         .privacy-banner strong { color: var(--attention); font-size: 1.02rem; }
         .privacy-banner p { color: #b6c1c6; font-size: 0.79rem; margin-top: 3px; line-height: 1.42; }
+        .privacy-policy-link { display: inline-block; color: var(--accent); font-size: 0.72rem; margin-top: 5px; }
         .privacy-banner .action-btn {
             grid-column: 1 / -1;
             justify-content: center;
@@ -1153,6 +1160,7 @@
                 <div>
                     <strong id="privacyModeLabel" data-i18n="privacy.local">Local-only mode</strong>
                     <p id="privacyModeDescription">Local files stay on this device. Engines open their manual upload pages.</p>
+                    <a class="privacy-policy-link" id="uploadPolicyLink" href="https://catbox.moe/legal.php" target="_blank" rel="noopener noreferrer" hidden>Catbox terms and privacy policy</a>
                 </div>
                 <button class="action-btn" id="privacyModeBtn" type="button">Change privacy mode</button>
             </div>
@@ -1358,11 +1366,13 @@
             console.warn('Invalid saved custom engine manifest was removed:', error);
         }
 
-        const DEFAULT_SETTINGS = { autoSearch: false, saveHistory: true, noUpload: true, externalUploadConsent: false };
+        const DEFAULT_SETTINGS = { autoSearch: false, saveHistory: true, noUpload: true };
         const DEFAULT_ENGINES = ['google', 'yandex'];
         let currentImageUrl = '';
         let currentImageData = null;
         let hostedUrl = null;
+        let hostedAt = null;
+        let hostedExpiresAt = null;
         let currentBatch = [];
         let lastHashes = null;
         let originalHashes = null;
@@ -1385,6 +1395,7 @@
         let activeEngines = migratedState.engines;
         let history = migratedState.history;
         let historyUndo = null;
+        let externalUploadAuthorized = false;
 
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -1544,7 +1555,7 @@
         function saveSettings() {
             try {
                 localStorage.setItem('rs_schema_version', String(Core.STORAGE_VERSION));
-                localStorage.setItem('rs_settings', JSON.stringify(settings));
+                localStorage.setItem('rs_settings', JSON.stringify({ ...settings, noUpload: true }));
                 localStorage.setItem('rs_engines', JSON.stringify(activeEngines));
             } catch (error) {
                 recordDiagnostic({ phase: 'storage-settings', error });
@@ -1573,25 +1584,33 @@
         }
 
         function syncPrivacyUI() {
-            const localOnly = settings.noUpload;
+            const localOnly = settings.noUpload || !externalUploadAuthorized;
             document.getElementById('privacyModeLabel').textContent = I18n.t(localOnly ? 'privacy.local' : 'privacy.external', activeLocale);
             document.getElementById('privacyModeDescription').textContent = localOnly
                 ? 'Local files stay on this device. Engines open their manual upload pages.'
-                : 'Local files upload to litterbox.catbox.moe for 1 hour before engine dispatch.';
+                : 'Session only: local files become public Litterbox URLs for 1 hour, then selected engines receive those URLs.';
             document.getElementById('privacyModeBtn').textContent = localOnly ? 'Enable external upload' : 'Use local-only mode';
             document.getElementById('noUploadToggle').classList.toggle('on', localOnly);
             document.getElementById('noUploadToggle').setAttribute('aria-checked', String(localOnly));
+            document.getElementById('uploadPolicyLink').hidden = localOnly;
         }
 
         function setExternalUploadEnabled(enabled) {
             if (enabled) {
-                const accepted = confirm('Enable external upload?\n\nLocal files will be uploaded to litterbox.catbox.moe with 1-hour retention. The resulting public URL will be sent to each selected search engine.');
+                const recipients = activeEngines.map((id) => SEARCH_ENGINES[id]?.name || id).join(', ') || 'none selected';
+                const accepted = confirm(
+                    'Enable external upload for this browser session?\n\n'
+                    + 'Litterbox receives the file and your IP address, stores upload metadata and the file unencrypted, and returns a public URL with 1-hour retention.\n\n'
+                    + `Selected recipients: ${recipients}\n\n`
+                    + 'Policy: https://catbox.moe/legal.php\n\n'
+                    + 'This authorization will be forgotten when the page is reopened.'
+                );
                 if (!accepted) return false;
                 settings.noUpload = false;
-                settings.externalUploadConsent = true;
+                externalUploadAuthorized = true;
             } else {
                 settings.noUpload = true;
-                settings.externalUploadConsent = false;
+                externalUploadAuthorized = false;
             }
             syncPrivacyUI();
             saveSettings();
@@ -1738,13 +1757,17 @@
 
         function addHistoryRecord(searchUrl, thumb) {
             if (!settings.saveHistory || !searchUrl) return;
+            const now = Date.now();
+            const sourceType = currentImageUrl ? 'remote' : 'hosted';
             history.unshift({
                 id: crypto.randomUUID ? crypto.randomUUID() : `history-${Date.now()}`,
                 url: searchUrl,
                 thumb: Core.boundedThumbnail(thumb),
-                time: Date.now(),
+                time: now,
                 engines: [...activeEngines],
-                sourceType: currentImageUrl ? 'remote' : 'hosted'
+                sourceType,
+                hostedAt: sourceType === 'hosted' ? (hostedAt || now) : null,
+                expiresAt: sourceType === 'hosted' ? (hostedExpiresAt || now + Core.HOSTED_RETENTION_MS) : null
             });
             if (history.length > Core.MAX_HISTORY) history.pop();
             saveHistoryData();
@@ -1762,9 +1785,8 @@
                     showToast('Local file stayed on this device. Use the queue to open manual upload pages.', '!');
                     return;
                 }
-                if (!settings.externalUploadConsent) {
-                    const accepted = confirm('Upload this local image to litterbox.catbox.moe?\n\nRetention: 1 hour, then the host states it is deleted. The resulting public URL is sent to selected search engines.');
-                    if (!accepted) {
+                if (!externalUploadAuthorized) {
+                    if (!setExternalUploadEnabled(true)) {
                         settings.noUpload = true;
                         syncPrivacyUI();
                         saveSettings();
@@ -1772,14 +1794,14 @@
                         showToast('Upload cancelled. Manual engine pages are queued instead.', '!');
                         return;
                     }
-                    settings.externalUploadConsent = true;
-                    saveSettings();
                 }
                 const file = dataURLtoFile(imageUrl);
                 const uploaded = await uploadToLitterbox(file);
                 if (!uploaded) return;
                 searchUrl = uploaded;
                 hostedUrl = uploaded;
+                hostedAt = Date.now();
+                hostedExpiresAt = hostedAt + Core.HOSTED_RETENTION_MS;
                 imageInfo.textContent = `Hosted for 1 hour: ${uploaded.substring(0, 35)}…`;
             }
 
@@ -1792,6 +1814,8 @@
             currentImageUrl = isLocal ? '' : src;
             currentImageData = isLocal ? src : null;
             hostedUrl = null;
+            hostedAt = null;
+            hostedExpiresAt = null;
             previewImage.src = src;
             dropZone.classList.add('has-image');
             updateImageAnalysis(src, isLocal);
@@ -2279,16 +2303,18 @@
             }
         }
 
-        function exportCaseFile() {
+        function buildCasePayload() {
             const source = hostedUrl || currentImageUrl || (currentImageData ? 'local-data-url' : '');
-            if (!source) { showToast('Load an image first', '⚠️', true); return; }
-            const data = {
+            if (!source) return null;
+            return {
                 app: 'ImageXpert',
-                schemaVersion: 2,
+                schemaVersion: 3,
                 version: APP_VERSION,
                 createdAt: new Date().toISOString(),
                 source,
                 sourceType: currentImageData ? (hostedUrl ? 'hosted-local' : 'local') : 'remote',
+                hostedAt: hostedUrl && hostedAt ? new Date(hostedAt).toISOString() : null,
+                expiresAt: hostedUrl && hostedExpiresAt ? new Date(hostedExpiresAt).toISOString() : null,
                 selectedEngines: activeEngines.map((eng) => ({ id: eng, name: SEARCH_ENGINES[eng]?.name || eng })),
                 hashes: lastHashes,
                 originalHashes,
@@ -2298,6 +2324,11 @@
                 batchCount: currentBatch.length,
                 dispatches: dispatches.map(({ target, ...dispatch }) => ({ ...dispatch, targetHost: new URL(target).host }))
             };
+        }
+
+        function exportCaseFile() {
+            const data = buildCasePayload();
+            if (!data) { showToast('Load an image first', '⚠️', true); return; }
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -2312,6 +2343,8 @@
             currentImageUrl = '';
             currentImageData = null;
             hostedUrl = null;
+            hostedAt = null;
+            hostedExpiresAt = null;
             currentBatch = [];
             lastHashes = null;
             originalHashes = null;
@@ -2341,8 +2374,11 @@
                 return;
             }
             history.forEach((item, index) => {
+                const availability = Core.historyAvailability(item);
+                const transientUnavailable = ['expired', 'expiry-unknown'].includes(availability);
                 const row = document.createElement('div');
                 row.className = 'history-item';
+                row.classList.toggle('expired', transientUnavailable);
                 if (Core.isApprovedImageSource(item.thumb)) {
                     const image = document.createElement('img');
                     image.className = 'history-thumb';
@@ -2360,9 +2396,30 @@
                 const engines = document.createElement('div');
                 engines.className = 'history-engines';
                 engines.textContent = item.engines.map((id) => SEARCH_ENGINES[id]?.name || id).join(', ');
+                const availabilityLabel = document.createElement('div');
+                availabilityLabel.className = 'history-availability';
+                availabilityLabel.textContent = availability === 'active'
+                    ? `Hosted URL available until ${new Date(item.expiresAt).toLocaleTimeString(activeLocale)}`
+                    : availability === 'expired'
+                        ? 'Hosted URL expired — reselect the local file or open manual engine pages'
+                        : availability === 'expiry-unknown'
+                            ? 'Legacy hosted URL expiry unknown — reselect the local file or use manual pages'
+                            : 'Remote URL';
                 const actions = document.createElement('div');
                 actions.className = 'history-actions';
-                [['🔍 Search', () => searchFromHistory(index)], ['🔗 Copy', () => copyHistoryUrl(index)], ['🗑️ Remove', () => removeFromHistory(index)]].forEach(([label, action]) => {
+                const availableActions = transientUnavailable
+                    ? [
+                        ['📂 Reselect', () => reselectHistoryFile(index)],
+                        ['↗ Manual pages', () => openManualHistoryEngines(index)],
+                        ['🔗 Copy', () => copyHistoryUrl(index)],
+                        ['🗑️ Remove', () => removeFromHistory(index)]
+                    ]
+                    : [
+                        ['🔍 Search', () => searchFromHistory(index)],
+                        ['🔗 Copy', () => copyHistoryUrl(index)],
+                        ['🗑️ Remove', () => removeFromHistory(index)]
+                    ];
+                availableActions.forEach(([label, action]) => {
                     const button = document.createElement('button');
                     button.type = 'button';
                     button.className = 'history-btn';
@@ -2370,7 +2427,7 @@
                     button.addEventListener('click', action);
                     actions.append(button);
                 });
-                info.append(time, engines, actions);
+                info.append(time, engines, availabilityLabel, actions);
                 row.append(info);
                 list.append(row);
             });
@@ -2384,7 +2441,33 @@
             return new Date(ts).toLocaleDateString(activeLocale);
         }
 
-        window.searchFromHistory = (i) => { const item = history[i]; closePanel(); if (item.thumb.startsWith('data:')) loadImage(item.thumb, true); else { urlInput.value = item.url; loadImage(item.url, false); } };
+        window.searchFromHistory = (i) => {
+            const item = history[i];
+            if (Core.historyAvailability(item) !== 'remote' && Core.historyAvailability(item) !== 'active') {
+                showToast('That temporary hosted URL is no longer safe to dispatch. Reselect the local file or use manual pages.', '⚠️', true);
+                return;
+            }
+            closePanel();
+            if (item.thumb.startsWith('data:')) loadImage(item.thumb, true);
+            else { urlInput.value = item.url; loadImage(item.url, false); }
+        };
+        window.reselectHistoryFile = () => { closePanel(); fileInput.click(); };
+        window.openManualHistoryEngines = (i) => {
+            const item = history[i];
+            const available = item.engines.filter((id) => SEARCH_ENGINES[id]);
+            if (available.length) {
+                activeEngines = available;
+                document.querySelectorAll('.engine-toggle').forEach((button) => {
+                    const active = activeEngines.includes(button.dataset.engine);
+                    button.classList.toggle('active', active);
+                    button.setAttribute('aria-pressed', String(active));
+                });
+                updateEngineSelectionCount();
+            }
+            closePanel();
+            queueSelectedEngines(null, true, `history-${item.id}`);
+            showToast('Manual upload pages queued; no expired URL will be sent.', '↗');
+        };
         window.copyHistoryUrl = (i) => { navigator.clipboard.writeText(history[i].url); showToast('URL copied!'); };
         window.removeFromHistory = (i) => { history.splice(i, 1); saveHistoryData(); renderHistory(); showToast('Removed'); };
 
@@ -2748,12 +2831,26 @@
                     performSearch,
                     performBatchSearch,
                     exportCaseFile,
+                    getCasePayload: () => structuredClone(buildCasePayload()),
                     openDispatch,
-                    setSettings: (next) => { settings = { ...settings, ...next }; syncPrivacyUI(); },
+                    setSettings: (next) => {
+                        if (Object.hasOwn(next, 'externalUploadConsent')) {
+                            externalUploadAuthorized = Boolean(next.externalUploadConsent);
+                        }
+                        const { externalUploadConsent, ...persistable } = next;
+                        settings = { ...settings, ...persistable };
+                        syncPrivacyUI();
+                    },
+                    setHistory: (next) => {
+                        history = Core.normalizeHistory(next, Object.keys(SEARCH_ENGINES));
+                        renderHistory();
+                    },
                     getState: () => ({
                         history: structuredClone(history),
                         dispatches: structuredClone(dispatches),
                         diagnostics: structuredClone(diagnostics),
+                        settings: structuredClone(settings),
+                        externalUploadAuthorized,
                         currentBatch: currentBatch.map(({ dataUrl, ...item }) => ({ ...item, hasData: Boolean(dataUrl) }))
                     })
                 })

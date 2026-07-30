@@ -13,7 +13,11 @@ ImageXpert is a static reverse image search hub for fast attribution work. Drop 
 - Drag-to-select region search with original-hash retention and optional Bing text context.
 - Local-only mode is the default. External upload requires explicit consent, uses
   litterbox.catbox.moe with 1-hour retention, and then exposes a retryable
-  per-engine dispatch queue.
+  per-engine dispatch queue. Authorization lasts only for the open browser
+  session; the decision names recipient engines and links the host policy.
+- Temporary hosted history records carry explicit expiry metadata. Expired or
+  legacy-unknown links cannot be redispatched and instead offer local-file or
+  manual-engine recovery.
 - Tampermonkey userscript and Chrome MV3 companion extension for right-click image handoff.
 - PWA manifest and offline shell for installable use.
 - Versioned English UI dictionary with locale fallback; the independently
@@ -46,6 +50,8 @@ npm test
 ```
 
 Build the unsigned site and Chrome companion archives with `npm run package`.
+The same package and test sequence runs in GitHub Actions on pushes and pull
+requests, and publishes the validated unsigned archives as workflow artifacts.
 
 ## Companion Extension
 

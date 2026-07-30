@@ -5,9 +5,10 @@
 }(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const STORAGE_VERSION = 2;
+    const STORAGE_VERSION = 3;
     const MAX_HISTORY = 30;
     const MAX_HISTORY_THUMBNAIL_LENGTH = 24_000;
+    const HOSTED_RETENTION_MS = 60 * 60 * 1000;
     const MAX_FILES = 10;
     const MAX_FILE_BYTES = 25 * 1024 * 1024;
     const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
@@ -50,15 +51,30 @@
         if (!Array.isArray(records)) return [];
         return records.slice(0, MAX_HISTORY).flatMap((item) => {
             if (!item || !isHttpUrl(item.url)) return [];
+            const sourceType = item.sourceType === 'remote' ? 'remote' : 'hosted';
+            const hostedAt = sourceType === 'hosted' && Number.isFinite(Number(item.hostedAt))
+                ? Number(item.hostedAt)
+                : null;
+            const expiresAt = sourceType === 'hosted' && Number.isFinite(Number(item.expiresAt))
+                ? Number(item.expiresAt)
+                : null;
             return [{
                 id: typeof item.id === 'string' ? item.id : `history-${Number(item.time || item.added || Date.now())}`,
                 url: item.url,
                 thumb: boundedThumbnail(item.thumb),
                 time: Number(item.time || item.added || Date.now()),
                 engines: Array.isArray(item.engines) ? item.engines.filter((id) => allowed.has(id)) : [],
-                sourceType: item.sourceType === 'remote' ? 'remote' : 'hosted'
+                sourceType,
+                hostedAt,
+                expiresAt
             }];
         });
+    }
+
+    function historyAvailability(item, now = Date.now()) {
+        if (!item || item.sourceType === 'remote') return 'remote';
+        if (!Number.isFinite(item.expiresAt)) return 'expiry-unknown';
+        return now >= item.expiresAt ? 'expired' : 'active';
     }
 
     function migrateState(raw, validEngines, defaults) {
@@ -85,9 +101,12 @@
             seen.add(item.url);
             unique.push(item);
         }
+        const settings = { ...defaults.settings, ...(settingsValue && typeof settingsValue === 'object' ? settingsValue : {}) };
+        delete settings.externalUploadConsent;
+        if (Object.hasOwn(defaults.settings, 'noUpload')) settings.noUpload = true;
         return {
             version: STORAGE_VERSION,
-            settings: { ...defaults.settings, ...(settingsValue && typeof settingsValue === 'object' ? settingsValue : {}) },
+            settings,
             engines: engines.length ? engines : [...defaults.engines],
             history: unique.slice(0, MAX_HISTORY),
             migratedLegacy: storedVersion < STORAGE_VERSION && legacyHistory.length > 0
@@ -151,6 +170,7 @@
     return Object.freeze({
         STORAGE_VERSION,
         MAX_HISTORY,
+        HOSTED_RETENTION_MS,
         MAX_FILES,
         MAX_FILE_BYTES,
         MAX_VIDEO_BYTES,
@@ -162,6 +182,7 @@
         isApprovedImageSource,
         boundedThumbnail,
         normalizeHistory,
+        historyAvailability,
         migrateState,
         validateFiles,
         validateEngineManifest
