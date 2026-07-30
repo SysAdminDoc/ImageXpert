@@ -100,6 +100,10 @@ const statusText = document.getElementById('statusText');
 const progressBar = document.getElementById('progressBar');
 const progressFill = document.getElementById('progressFill');
 const cancelOperationBtn = document.getElementById('cancelOperationBtn');
+const lifecycleBanner = document.getElementById('lifecycleBanner');
+const lifecycleText = document.getElementById('lifecycleText');
+const activateUpdateBtn = document.getElementById('activateUpdateBtn');
+let activatePendingUpdate = null;
 
 function showToast(msg, icon = '✓', err = false) {
     const t = document.getElementById('toast');
@@ -1441,15 +1445,78 @@ if (prefillImage && /^https?:\/\/.+/i.test(prefillImage)) {
     loadFromUrl(prefillImage);
 }
 
+const updateRecovery = Core.safeParse(sessionStorage.getItem('rs_update_recovery'), null);
+sessionStorage.removeItem('rs_update_recovery');
+if (!prefillImage && updateRecovery?.source && Core.isHttpUrl(updateRecovery.source)) {
+    urlInput.value = updateRecovery.source;
+    document.getElementById('textContextInput').value = String(updateRecovery.textContext || '').slice(0, 300);
+    loadImage(updateRecovery.source, false, true);
+    showToast('Remote investigation restored after the app update.', '↻');
+} else if (updateRecovery?.localFilePending) {
+    showToast('App updated. Reselect the local file to continue.', '↻');
+}
+
+function renderLifecycleState(state) {
+    const messages = {
+        offline: 'Offline — local analysis and the cached shell remain available.',
+        online: 'Connection restored.',
+        installing: 'A new ImageXpert version is downloading in the background.',
+        'update-ready': 'Update ready. Save the current workspace and reload when convenient.',
+        activating: 'Saving workspace and activating the update…',
+        activated: 'Update activated. Reloading…',
+        'install-failed': 'Update download failed. The current offline version remains available.'
+    };
+    lifecycleBanner.dataset.state = state;
+    lifecycleText.textContent = messages[state] || 'ImageXpert is ready.';
+    lifecycleBanner.hidden = !messages[state] || ['online'].includes(state);
+    activateUpdateBtn.hidden = state !== 'update-ready';
+}
+
+function persistWorkspaceForUpdate() {
+    saveSettings();
+    saveHistoryData();
+    sessionStorage.setItem('rs_update_recovery', JSON.stringify({
+        source: currentImageUrl || '',
+        localFilePending: Boolean(currentImageData),
+        textContext: document.getElementById('textContextInput').value.slice(0, 300)
+    }));
+}
+
+activateUpdateBtn.addEventListener('click', async () => {
+    if (!activatePendingUpdate) return;
+    activateUpdateBtn.disabled = true;
+    try {
+        await activatePendingUpdate();
+    } catch (error) {
+        activateUpdateBtn.disabled = false;
+        recordDiagnostic({ phase: 'service-worker-activate', error });
+        renderLifecycleState('install-failed');
+    }
+});
+
 window.addEventListener('offline', () => {
     recordDiagnostic({ phase: 'network', error: new Error('Offline'), detail: 'Local analysis remains available; external dispatch is unavailable.' });
+    renderLifecycleState('offline');
     showToast('Offline: local analysis works, but uploads and engine dispatch may fail.', '⚠️', true);
 });
-window.addEventListener('online', () => recordDiagnostic({ phase: 'network', detail: 'online' }));
+window.addEventListener('online', () => {
+    recordDiagnostic({ phase: 'network', detail: 'online' });
+    if (!activatePendingUpdate) renderLifecycleState('online');
+});
 
 {
     const startedAt = performance.now();
-    registerServiceWorker()
+    registerServiceWorker({
+        beforeActivate: persistWorkspaceForUpdate,
+        onUpdateReady: (activate) => {
+            activatePendingUpdate = activate;
+            renderLifecycleState('update-ready');
+        },
+        onStateChange: (state) => {
+            recordDiagnostic({ phase: 'service-worker-state', detail: state });
+            if (!['registered'].includes(state)) renderLifecycleState(state);
+        }
+    })
         .then(({ status }) => recordDiagnostic({ phase: 'service-worker', startedAt, detail: status }))
         .catch((error) => {
             recordDiagnostic({ phase: 'service-worker', startedAt, error });

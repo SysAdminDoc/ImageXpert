@@ -23,12 +23,15 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(OFFLINE_ASSETS))
-      .then(() => self.skipWaiting())
       .catch((error) => {
         console.error('ImageXpert offline shell install failed', error);
-        throw error;
+        return caches.delete(CACHE_NAME).then(() => { throw error; });
       })
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -50,24 +53,25 @@ self.addEventListener('fetch', (event) => {
   if (event.request.mode !== 'navigate' && !CACHE_PATHS.has(url.pathname)) return;
 
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(event.request);
+      if (cached) return cached;
+      try {
+        const response = await fetch(event.request);
         if (response.ok && CACHE_PATHS.has(url.pathname)) {
-          event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone())));
+          event.waitUntil(cache.put(event.request, response.clone()));
         }
         return response;
-      })
-      .catch(async () => {
-        const cached = await caches.match(event.request);
-        if (cached) return cached;
+      } catch {
         if (event.request.mode === 'navigate') {
-          const shell = await caches.match('./index.html');
+          const shell = await cache.match('./index.html');
           if (shell) return shell;
         }
         return new Response('ImageXpert is offline and this shell asset is unavailable.', {
           status: 503,
           headers: { 'Content-Type': 'text/plain; charset=utf-8' }
         });
-      })
+      }
+    })
   );
 });

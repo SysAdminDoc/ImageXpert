@@ -111,6 +111,21 @@ check('optional C2PA adapter stays local and rejects affected SDK contracts', ()
     assert.match(read('README.md'), /ImageXpertC2PAAdapter/);
 });
 
+check('service-worker updates require explicit recoverable activation', () => {
+    const worker = read('sw.js');
+    assert.doesNotMatch(worker, /\.then\(\(\) => self\.skipWaiting\(\)\)/);
+    assert.match(worker, /event\.data\?\.type === 'SKIP_WAITING'/);
+    assert.match(worker, /caches\.delete\(CACHE_NAME\)/);
+    assert.match(worker, /const cached = await cache\.match\(event\.request\)/);
+    const controller = read('modules/service-worker-controller.js');
+    assert.match(controller, /beforeActivate/);
+    assert.match(controller, /waiting\.postMessage\(\{ type: 'SKIP_WAITING' \}\)/);
+    const smoke = read('tests/browser-smoke.js');
+    assert.match(smoke, /broken-install/);
+    assert.match(smoke, /imagexpert-stale-smoke/);
+    assert.match(smoke, /restored remote investigation/);
+});
+
 check('CI builds and validates unsigned release artifacts deterministically', () => {
     const workflow = read('.github/workflows/ci.yml');
     assert.match(workflow, /runs-on: windows-latest/);

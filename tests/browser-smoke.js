@@ -35,6 +35,7 @@ const mimeTypes = {
     '.png': 'image/png'
 };
 
+let serviceWorkerCacheVariant = '';
 const server = http.createServer((request, response) => {
     const pathname = decodeURIComponent(new URL(request.url, `http://127.0.0.1:${httpPort}`).pathname);
     const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
@@ -44,6 +45,17 @@ const server = http.createServer((request, response) => {
         return;
     }
     response.setHeader('Content-Type', mimeTypes[path.extname(target)] || 'application/octet-stream');
+    if (relative === 'sw.js' && serviceWorkerCacheVariant) {
+        let worker = fs.readFileSync(target, 'utf8').replace(
+            "'imagexpert-v1.2.0'",
+            `'imagexpert-test-${serviceWorkerCacheVariant}'`
+        );
+        if (serviceWorkerCacheVariant === 'broken-install') {
+            worker = worker.replace("'./icon.png'", "'./icon.png', './missing-install-asset.js'");
+        }
+        response.end(worker);
+        return;
+    }
     fs.createReadStream(target).pipe(response);
 });
 
@@ -136,6 +148,20 @@ async function waitForServiceWorkerController(client) {
         waiting: registration.waiting?.state
     })))`);
     throw new Error(`Timed out waiting for the service worker to control the page: ${JSON.stringify(detail)}`);
+}
+
+async function waitForExpression(client, expression, label) {
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+        if (await client.evaluate(`Promise.resolve(${expression}).then(Boolean)`)) return;
+        await sleep(100);
+    }
+    const detail = await client.evaluate(`(async () => ({
+        lifecycle: document.getElementById('lifecycleBanner')?.dataset.state || '',
+        lifecycleText: document.getElementById('lifecycleText')?.textContent || '',
+        waiting: Boolean((await navigator.serviceWorker.getRegistration())?.waiting),
+        diagnostics: window.__ImageXpertTest?.getState().diagnostics.slice(-8) || []
+    }))()`);
+    throw new Error(`Timed out waiting for ${label}: ${JSON.stringify(detail)}`);
 }
 
 async function setViewport(client, width, height) {
@@ -302,9 +328,93 @@ async function main() {
                     downloadThroughput: -1,
                     uploadThroughput: -1
                 });
-                await client.send('Page.reload', { ignoreCache: true });
+                await client.send('Page.navigate', { url: `http://127.0.0.1:${httpPort}/` });
                 await waitForApp(client);
+                await waitForServiceWorkerController(client);
             }
+        });
+
+        await report('service-worker updates preserve work and recover from interrupted installs', async () => {
+            await waitForServiceWorkerController(client);
+            serviceWorkerCacheVariant = 'broken-install';
+            const failedInstall = await client.evaluate(`navigator.serviceWorker.getRegistration()
+                .then(registration => {
+                    const updating = new Promise(resolve => {
+                        const found = () => {
+                            const worker = registration.installing;
+                            if (!worker) return;
+                            const reportState = () => {
+                                if (['redundant', 'installed', 'activated'].includes(worker.state)) {
+                                    resolve({ state: worker.state, controller: navigator.serviceWorker.controller?.scriptURL || '' });
+                                }
+                            };
+                            worker.addEventListener('statechange', reportState);
+                            reportState();
+                        };
+                        registration.addEventListener('updatefound', found, { once: true });
+                    });
+                    return registration.update().then(() => updating);
+                })`);
+            assert.equal(failedInstall.state, 'redundant');
+            await waitForServiceWorkerController(client);
+            await waitForExpression(client, `caches.has('imagexpert-test-broken-install').then(present => !present)`, 'failed install cache cleanup');
+
+            await client.evaluate(`Promise.all([
+                caches.open('imagexpert-stale-smoke'),
+                Promise.resolve().then(() => {
+                    document.getElementById('urlInput').value = location.origin + '/icon.png';
+                    window.__ImageXpertTest.loadFromUrl(location.origin + '/icon.png');
+                })
+            ])`);
+            serviceWorkerCacheVariant = 'next-version';
+            const mixedVersion = await client.evaluate(`navigator.serviceWorker.getRegistration()
+                .then(registration => {
+                    const updating = new Promise(resolve => {
+                        const found = () => {
+                            const worker = registration.installing;
+                            if (!worker) return;
+                            const reportState = () => {
+                                if (worker.state === 'installed') resolve({
+                                    waiting: Boolean(registration.waiting),
+                                    controller: Boolean(navigator.serviceWorker.controller)
+                                });
+                            };
+                            worker.addEventListener('statechange', reportState);
+                            reportState();
+                        };
+                        registration.addEventListener('updatefound', found, { once: true });
+                    });
+                    return registration.update().then(() => updating);
+                })`);
+            assert.equal(mixedVersion.waiting, true);
+            assert.equal(mixedVersion.controller, true);
+            await waitForExpression(client, `document.getElementById('lifecycleBanner').dataset.state === 'update-ready'`, 'update-ready banner');
+            const beforeActivation = await client.evaluate(`(async () => ({
+                hooksPresent: Boolean(window.__ImageXpertTest),
+                source: document.getElementById('urlInput').value,
+                stalePresent: await caches.has('imagexpert-stale-smoke')
+            }))()`);
+            assert.equal(beforeActivation.hooksPresent, true);
+            assert.match(beforeActivation.source, /icon\.png$/);
+            assert.equal(beforeActivation.stalePresent, true);
+
+            await client.evaluate(`document.getElementById('activateUpdateBtn').click()`);
+            await waitForApp(client);
+            await waitForServiceWorkerController(client);
+            await waitForExpression(client, `Promise.all([
+                caches.has('imagexpert-test-next-version'),
+                caches.has('imagexpert-v1.2.0')
+            ]).then(([next, previous]) => next && !previous)`, 'new service-worker cache');
+            await waitForExpression(client, `document.getElementById('urlInput')?.value.endsWith('/icon.png')`, 'restored remote investigation');
+            const recovered = await client.evaluate(`(async () => ({
+                source: document.getElementById('urlInput').value,
+                restored: document.getElementById('dropZone').classList.contains('has-image'),
+                caches: await caches.keys()
+            }))()`);
+            assert.match(recovered.source, /icon\.png$/);
+            assert.equal(recovered.restored, true);
+            assert.equal(recovered.caches.includes('imagexpert-stale-smoke'), false);
+            assert.equal(recovered.caches.includes('imagexpert-test-next-version'), true);
         });
 
         for (const width of [390, 320]) {

@@ -143,6 +143,24 @@ body {
 
 .header-btn:hover { border-color: var(--border-strong); background: var(--surface-soft); }
 
+.lifecycle-banner {
+    margin: 12px clamp(14px, 3vw, 42px) 0;
+    padding: 10px 14px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    background: var(--surface-raised);
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.84rem;
+}
+
+.lifecycle-banner[data-state="offline"],
+.lifecycle-banner[data-state="install-failed"] { border-color: rgba(255, 95, 95, 0.55); color: #ffaaaa; }
+.lifecycle-banner[data-state="update-ready"] { border-color: rgba(247, 184, 75, 0.6); color: var(--attention); }
+
 .main {
     flex: 1;
     display: grid;
