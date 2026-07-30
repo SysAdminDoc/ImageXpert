@@ -1,8 +1,11 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const core = require('../app-core.js');
 const i18n = require('../i18n.js');
+const mediaHunter = require('../MediaHunter_Lite.user.js');
 
 function test(name, fn) {
     try {
@@ -148,4 +151,88 @@ test('custom engine manifests reject scripts and unsafe schemes', () => {
             manualUrl: 'https://example.com'
         }]
     }), /HTTPS/);
+});
+
+test('userscript URL boundary rejects hostile, credentialed, and oversized values', () => {
+    assert.equal(mediaHunter.url('javascript:alert(1)'), '');
+    assert.equal(mediaHunter.url('https://user:pass@example.com/a.jpg'), '');
+    assert.equal(mediaHunter.url(`https://example.com/${'a'.repeat(mediaHunter.MAX_URL_LENGTH)}`), '');
+    assert.equal(mediaHunter.url('https://cdn.pexels.com/a.jpg', undefined, ['pexels.com']), 'https://cdn.pexels.com/a.jpg');
+    assert.equal(mediaHunter.url('https://evilpexels.com/a.jpg', undefined, ['pexels.com']), '');
+});
+
+test('userscript storage normalization contains corruption and unsafe media', () => {
+    assert.deepEqual(mediaHunter.collections({ broken: true }), [{ name: 'Default', items: [] }]);
+    const collections = mediaHunter.collections([{
+        name: '<script>alert(1)</script>',
+        items: [
+            { full: 'javascript:alert(1)', thumb: 'https://example.com/thumb.jpg' },
+            { full: 'https://example.com/full.jpg', thumb: 'https://example.com/thumb.jpg', type: 'image', name: 'safe.jpg' }
+        ]
+    }]);
+    assert.equal(collections[0].items.length, 1);
+    assert.equal(collections[0].items[0].full, 'https://example.com/full.jpg');
+    assert.deepEqual(mediaHunter.history(['one', null, 'one', 'x'.repeat(300)]), ['one', 'x'.repeat(200)]);
+    assert.equal(mediaHunter.theme('red; background:url(https://evil.example)'), '#00E676');
+});
+
+test('userscript response parser and request wrapper enforce size, host, timeout, and anonymity', () => {
+    assert.throws(() => mediaHunter.json('{broken'), SyntaxError);
+    assert.throws(() => mediaHunter.json('x'.repeat(mediaHunter.MAX_RESPONSE_BYTES + 1)), /2 MB/);
+    const hostileHtml = '<img src="javascript:alert(1)" onerror="alert(2)"><script>alert(3)</script>';
+    let parsedAs = '';
+    const parsed = mediaHunter.html(hostileHtml, class {
+        parseFromString(value, mime) {
+            parsedAs = mime;
+            return { inertSource: value };
+        }
+    });
+    assert.equal(parsedAs, 'text/html');
+    assert.equal(parsed.inertSource, hostileHtml);
+    assert.throws(() => mediaHunter.html('x'.repeat(mediaHunter.MAX_RESPONSE_BYTES + 1), class {}), /2 MB/);
+
+    let requestOptions;
+    let loaded = false;
+    mediaHunter.request({
+        requestFunction: (options) => {
+            requestOptions = options;
+            options.onload({ status: 200, responseText: '{"ok":true}' });
+        },
+        requestUrl: 'https://api.unsplash.com/data',
+        allowedHosts: ['unsplash.com'],
+        onload: () => { loaded = true; },
+        onerror: assert.fail
+    });
+    assert.equal(loaded, true);
+    assert.equal(requestOptions.anonymous, true);
+    assert.equal(requestOptions.timeout, mediaHunter.REQUEST_TIMEOUT_MS);
+
+    let timeoutName = '';
+    mediaHunter.request({
+        requestFunction: (options) => options.ontimeout(),
+        requestUrl: 'https://unsplash.com/data',
+        allowedHosts: ['unsplash.com'],
+        onerror: (error) => { timeoutName = error.name; }
+    });
+    assert.equal(timeoutName, 'TimeoutError');
+
+    let invoked = false;
+    mediaHunter.request({
+        requestFunction: () => { invoked = true; },
+        requestUrl: 'https://attacker.example/data',
+        allowedHosts: ['unsplash.com'],
+        onerror: () => {}
+    });
+    assert.equal(invoked, false);
+});
+
+test('userscript keeps native context menus and routes external labels through text nodes', () => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../MediaHunter_Lite.user.js'), 'utf8');
+    const contextHandler = source.match(/document\.addEventListener\('contextmenu',[\s\S]*?\}, true\);/)?.[0] || '';
+    assert.notEqual(contextHandler, '');
+    assert.doesNotMatch(contextHandler, /preventDefault|stopPropagation/);
+    assert.match(source, /badge\.textContent = Boundary\.text\(label, 80\)/);
+    assert.doesNotMatch(source, /innerHTML\s*=\s*(?:String\()?label/);
+    assert.equal((source.match(/new DOMParser/g) || []).length, 0);
+    assert.doesNotMatch(source, /GM_xmlhttpRequest\(\{/);
 });

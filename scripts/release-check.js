@@ -81,6 +81,26 @@ check('PWA and extension security contracts are valid', () => {
     assert.doesNotMatch(sw, /MediaHunter_Lite\.user\.js/);
 });
 
+check('userscript privileges match the documented least-privilege boundary', () => {
+    const userscript = read('MediaHunter_Lite.user.js');
+    const grants = [...userscript.matchAll(/^\/\/ @grant\s+(\S+)$/gm)].map((match) => match[1]);
+    assert.deepEqual(grants, [
+        'GM_addStyle',
+        'GM_openInTab',
+        'GM_xmlhttpRequest',
+        'GM_download',
+        'GM_setValue',
+        'GM_getValue',
+        'GM_setClipboard',
+        'GM_registerMenuCommand'
+    ]);
+    const connects = [...userscript.matchAll(/^\/\/ @connect\s+(\S+)$/gm)].map((match) => match[1]);
+    assert.deepEqual(connects, ['unsplash.com', 'pexels.com', 'pixabay.com', 'mixkit.co', 'youtube.com', 'wikimedia.org']);
+    assert.doesNotMatch(userscript, /GM_xmlhttpRequest\(\{/);
+    assert.match(userscript, /anonymous: true/);
+    assert.match(read('README.md'), /MediaHunter userscript permissions/);
+});
+
 check('CI builds and validates unsigned release artifacts deterministically', () => {
     const workflow = read('.github/workflows/ci.yml');
     assert.match(workflow, /runs-on: windows-latest/);

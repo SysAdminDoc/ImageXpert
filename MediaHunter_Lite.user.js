@@ -21,13 +21,7 @@
 // @connect      pixabay.com
 // @connect      mixkit.co
 // @connect      youtube.com
-// @connect      google.com
 // @connect      wikimedia.org
-// @connect      images.pexels.com
-// @connect      images.unsplash.com
-// @connect      cdn.pixabay.com
-// @connect      upload.wikimedia.org
-// @connect      i.ytimg.com
 // @noframes
 // @run-at       document-idle
 // ==/UserScript==
@@ -35,6 +29,135 @@
 (function() {
     'use strict';
 
+    const Boundary = (() => {
+        const MAX_URL_LENGTH = 4096;
+        const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+        const REQUEST_TIMEOUT_MS = 15_000;
+        const MAX_HISTORY = 50;
+        const MAX_COLLECTIONS = 20;
+        const MAX_COLLECTION_ITEMS = 200;
+
+        function text(value, maximum = 200) {
+            return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, maximum);
+        }
+
+        function url(value, base = 'https://invalid.example/', allowedHosts = []) {
+            const raw = String(value ?? '').trim();
+            if (!raw || raw.length > MAX_URL_LENGTH) return '';
+            try {
+                const parsed = new URL(raw, base);
+                if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) return '';
+                const hostAllowed = allowedHosts.length === 0 || allowedHosts.some((host) => (
+                    parsed.hostname === host || parsed.hostname.endsWith(`.${host}`)
+                ));
+                return hostAllowed ? parsed.href : '';
+            } catch {
+                return '';
+            }
+        }
+
+        function json(responseText) {
+            if (typeof responseText !== 'string' || responseText.length > MAX_RESPONSE_BYTES) {
+                throw new RangeError('Response exceeds the 2 MB parsing limit');
+            }
+            return JSON.parse(responseText);
+        }
+
+        function html(responseText, Parser = globalThis.DOMParser) {
+            if (typeof responseText !== 'string' || responseText.length > MAX_RESPONSE_BYTES) {
+                throw new RangeError('Response exceeds the 2 MB parsing limit');
+            }
+            if (typeof Parser !== 'function') throw new TypeError('DOMParser is unavailable');
+            return new Parser().parseFromString(responseText, 'text/html');
+        }
+
+        function collections(value) {
+            if (!Array.isArray(value)) return [{ name: 'Default', items: [] }];
+            const normalized = value.slice(0, MAX_COLLECTIONS).map((collection, index) => {
+                const items = Array.isArray(collection?.items) ? collection.items : [];
+                return {
+                    name: text(collection?.name || `Gallery ${index + 1}`, 60) || `Gallery ${index + 1}`,
+                    items: items.slice(0, MAX_COLLECTION_ITEMS).flatMap((item) => {
+                        const full = url(item?.full);
+                        const thumb = url(item?.thumb);
+                        if (!full || !thumb) return [];
+                        return [{
+                            full,
+                            thumb,
+                            type: ['image', 'video', 'youtube'].includes(item?.type) ? item.type : 'image',
+                            name: text(item?.name, 180)
+                        }];
+                    })
+                };
+            });
+            return normalized.length ? normalized : [{ name: 'Default', items: [] }];
+        }
+
+        function history(value) {
+            if (!Array.isArray(value)) return [];
+            return [...new Set(value.map((item) => text(item, 200)).filter(Boolean))].slice(0, MAX_HISTORY);
+        }
+
+        function theme(value) {
+            return /^#[0-9a-f]{6}$/i.test(String(value)) ? String(value) : '#00E676';
+        }
+
+        function request({ requestFunction, requestUrl, allowedHosts, onload, onerror, timeout = REQUEST_TIMEOUT_MS }) {
+            const safeUrl = url(requestUrl, 'https://invalid.example/', allowedHosts);
+            if (!safeUrl) {
+                onerror?.(new TypeError('Request URL is outside the declared host boundary'));
+                return null;
+            }
+            let settled = false;
+            const fail = (error) => {
+                if (settled) return;
+                settled = true;
+                onerror?.(error instanceof Error ? error : new Error('Cross-origin request failed'));
+            };
+            return requestFunction({
+                method: 'GET',
+                url: safeUrl,
+                timeout,
+                anonymous: true,
+                onload: (response) => {
+                    if (settled) return;
+                    try {
+                        if (!Number.isInteger(response?.status) || response.status < 200 || response.status >= 300) {
+                            throw new Error(`HTTP ${response?.status || 0}`);
+                        }
+                        if (typeof response.responseText !== 'string' || response.responseText.length > MAX_RESPONSE_BYTES) {
+                            throw new RangeError('Response exceeds the 2 MB parsing limit');
+                        }
+                        onload?.(response);
+                        settled = true;
+                    } catch (error) {
+                        fail(error);
+                    }
+                },
+                onerror: () => fail(new Error('Cross-origin request failed')),
+                ontimeout: () => fail(new DOMException('Cross-origin request timed out', 'TimeoutError')),
+                onabort: () => fail(new DOMException('Cross-origin request was cancelled', 'AbortError'))
+            });
+        }
+
+        return Object.freeze({
+            MAX_URL_LENGTH,
+            MAX_RESPONSE_BYTES,
+            REQUEST_TIMEOUT_MS,
+            MAX_COLLECTION_ITEMS,
+            text,
+            url,
+            json,
+            html,
+            collections,
+            history,
+            theme,
+            request
+        });
+    })();
+
+    if (typeof module === 'object' && module.exports) module.exports = Boundary;
+    if (typeof document === 'undefined') return;
     if (window.top !== window.self) return;
 
     const ICONS = {
@@ -75,14 +198,14 @@
     const state = {
         isOpen: false,
         isBarOpen: true,
-        isVisible: GM_getValue('mh_is_visible', true),
+        isVisible: GM_getValue('mh_is_visible', true) !== false,
         currentMode: 'photos',
-        themeColor: GM_getValue('mh_theme', '#00E676'),
+        themeColor: Boundary.theme(GM_getValue('mh_theme', '#00E676')),
         orientation: 'all',
         sources: { unsplash: true, pexels: true, pixabay: true, wikimedia: true, mixkit: true, pexelsVideo: true, pixabayVideo: true, youtube: true },
-        collections: GM_getValue('mh_collections', [{ name: 'Default', items: [] }]),
+        collections: Boundary.collections(GM_getValue('mh_collections', [{ name: 'Default', items: [] }])),
         activeCollectionIndex: 0,
-        history: GM_getValue('mh_history', []),
+        history: Boundary.history(GM_getValue('mh_history', [])),
         isScanning: false,
         currentQuery: '',
         page: 1,
@@ -90,8 +213,14 @@
         foundItems: new Set()
     };
 
-    function saveCollections() { GM_setValue('mh_collections', state.collections); }
-    function saveHistory() { GM_setValue('mh_history', state.history); }
+    function saveCollections() {
+        state.collections = Boundary.collections(state.collections);
+        GM_setValue('mh_collections', state.collections);
+    }
+    function saveHistory() {
+        state.history = Boundary.history(state.history);
+        GM_setValue('mh_history', state.history);
+    }
     function getActiveCollection() { return state.collections[state.activeCollectionIndex]; }
 
     function wipeResults(type) {
@@ -118,11 +247,11 @@
     function getFileNameFromUrl(url, type) {
         try {
             if (url.includes('pexels.com/download')) return 'pexels_' + Date.now() + (type === 'video' ? '.mp4' : '.jpg');
-            const cleanUrl = url.split('?')[0];
-            let filename = cleanUrl.split('/').pop();
-            filename = decodeURIComponent(filename);
+            const cleanUrl = new URL(Boundary.url(url));
+            let filename = decodeURIComponent(cleanUrl.pathname.split('/').pop());
+            filename = Boundary.text(filename.replace(/[<>:"/\\|?*]/g, '_'), 180);
             if (!filename.includes('.')) filename += (type === 'video' ? '.mp4' : '.jpg');
-            return filename;
+            return filename || ((type === 'video' ? 'video_' : 'image_') + Date.now() + (type === 'video' ? '.mp4' : '.jpg'));
         } catch (e) {
             return (type === 'video' ? 'video_' : 'image_') + Date.now() + (type === 'video' ? '.mp4' : '.jpg');
         }
@@ -136,9 +265,10 @@
     }
 
     function setTheme(color) {
-        state.themeColor = color;
-        GM_setValue('mh_theme', color);
-        document.documentElement.style.setProperty('--mh-theme', color);
+        const safeColor = Boundary.theme(color);
+        state.themeColor = safeColor;
+        GM_setValue('mh_theme', safeColor);
+        document.documentElement.style.setProperty('--mh-theme', safeColor);
     }
 
     function notify(message) {
@@ -154,11 +284,22 @@
     }
 
     function absoluteUrl(url) {
-        try {
-            const parsed = new URL(url, location.href);
-            return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '';
-        }
-        catch (e) { return ''; }
+        return Boundary.url(url, location.href);
+    }
+
+    const SOURCE_HOSTS = Object.freeze(['unsplash.com', 'pexels.com', 'pixabay.com', 'mixkit.co', 'youtube.com', 'wikimedia.org']);
+
+    function requestSource(options) {
+        return Boundary.request({
+            requestFunction: GM_xmlhttpRequest,
+            requestUrl: options.url,
+            allowedHosts: SOURCE_HOSTS,
+            onload: options.onload,
+            onerror: (error) => {
+                recordDiagnostic('source-request', error);
+                options.onerror?.(error);
+            }
+        });
     }
 
     function createMediaElement(url, type = 'image') {
@@ -471,8 +612,14 @@
 
     function addToCollection(fullUrl, thumbUrl, type) {
         const active = getActiveCollection();
-        if (active.items.some(i => i.full === fullUrl)) return;
-        active.items.push({ full: fullUrl, thumb: thumbUrl, type, name: getFileNameFromUrl(fullUrl, type) });
+        const safeFull = absoluteUrl(fullUrl);
+        const safeThumb = absoluteUrl(thumbUrl);
+        if (!safeFull || !safeThumb || active.items.some(i => i.full === safeFull)) return;
+        if (active.items.length >= Boundary.MAX_COLLECTION_ITEMS) {
+            notify(`Gallery limit reached (${Boundary.MAX_COLLECTION_ITEMS} items)`);
+            return;
+        }
+        active.items.push({ full: safeFull, thumb: safeThumb, type, name: getFileNameFromUrl(safeFull, type) });
         saveCollections();
         updateGalleryDropdown();
         renderCollection();
@@ -553,9 +700,10 @@
     }
 
     function addToHistory(term) {
-        state.history = state.history.filter(h => h !== term);
-        state.history.unshift(term);
-        if (state.history.length > 50) state.history.pop();
+        const safeTerm = Boundary.text(term, 200);
+        if (!safeTerm) return;
+        state.history = state.history.filter(h => h !== safeTerm);
+        state.history.unshift(safeTerm);
         saveHistory();
         renderHistory();
     }
@@ -578,7 +726,7 @@
     }
 
     function searchPhotos(isNew = true) {
-        let query = document.getElementById('mh-input-p').value;
+        const query = Boundary.text(document.getElementById('mh-input-p').value, 200);
         if (!query) return;
         if (isNew) {
             state.isScanning = false;
@@ -598,14 +746,15 @@
 
         if (state.sources.unsplash) {
             const uUrl = `https://unsplash.com/napi/search/photos?query=${encodeURIComponent(query)}&per_page=12&page=${state.page}&orientation=${orientUnsplash}`;
-            GM_xmlhttpRequest({
+            requestSource({
                 method: "GET", url: uUrl,
                 onload: (res) => {
                     try {
-                        const data = JSON.parse(res.responseText);
+                        const data = Boundary.json(res.responseText);
                         if (container.innerText.includes('Scanning')) container.innerHTML = '';
-                        data.results.forEach(p => renderResult(container, p.urls.small, p.urls.regular, 'Unsplash'));
-                    } catch (e) {}
+                        if (!Array.isArray(data?.results)) throw new TypeError('Unsplash response has no results array');
+                        data.results.slice(0, 24).forEach(p => renderResult(container, p?.urls?.small, p?.urls?.regular, 'Unsplash'));
+                    } catch (error) { recordDiagnostic('unsplash-parse', error); }
                     finish();
                 },
                 onerror: finish
@@ -614,11 +763,11 @@
 
         if (state.sources.pexels) {
             const pUrl = `https://www.pexels.com/search/${encodeURIComponent(query)}/?page=${state.page}&orientation=${orientPexels}`;
-            GM_xmlhttpRequest({
+            requestSource({
                 method: "GET", url: pUrl, headers: { "User-Agent": navigator.userAgent },
                 onload: (res) => {
-                    const doc = new DOMParser().parseFromString(res.responseText, "text/html");
-                    doc.querySelectorAll('img').forEach(img => {
+                    const doc = Boundary.html(res.responseText);
+                    [...doc.querySelectorAll('img')].slice(0, 100).forEach(img => {
                         const src = extractValidImage(img);
                         if (src && src.includes('images.pexels.com/photos'))
                             renderResult(container, src.replace('w=500', 'w=300'), src.split('?')[0], 'Pexels');
@@ -631,12 +780,12 @@
 
         if (state.sources.pixabay) {
             const pbUrl = `https://pixabay.com/images/search/${encodeURIComponent(query)}/?pagi=${state.page}&orientation=${orientPixabay}`;
-            GM_xmlhttpRequest({
+            requestSource({
                 method: "GET", url: pbUrl, headers: { "User-Agent": navigator.userAgent },
                 onload: (res) => {
-                    const doc = new DOMParser().parseFromString(res.responseText, "text/html");
+                    const doc = Boundary.html(res.responseText);
                     if (container.innerText.includes('Scanning')) container.innerHTML = '';
-                    doc.querySelectorAll('a > img').forEach(img => {
+                    [...doc.querySelectorAll('a > img')].slice(0, 100).forEach(img => {
                         const src = extractValidImage(img);
                         if (src && src.includes('pixabay.com/photo'))
                             renderResult(container, src, src.replace('_340', '_1280').replace('__340', '_1280'), 'Pixabay');
@@ -649,16 +798,16 @@
 
         if (state.sources.wikimedia) {
             const wUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(query)}&gsrlimit=10&gsroffset=${(state.page - 1) * 10}&prop=imageinfo&iiprop=url&format=json&origin=*`;
-            GM_xmlhttpRequest({
+            requestSource({
                 method: "GET", url: wUrl,
                 onload: (res) => {
                     try {
-                        const data = JSON.parse(res.responseText);
-                        Object.values(data.query.pages).forEach(page => {
+                        const data = Boundary.json(res.responseText);
+                        Object.values(data?.query?.pages || {}).slice(0, 20).forEach(page => {
                             if (page.imageinfo && page.imageinfo[0])
                                 renderResult(container, page.imageinfo[0].url, page.imageinfo[0].url, 'Wikimedia');
                         });
-                    } catch (e) {}
+                    } catch (error) { recordDiagnostic('wikimedia-parse', error); }
                     finish();
                 },
                 onerror: finish
@@ -667,7 +816,7 @@
     }
 
     function searchVideos(isNew = true) {
-        const query = document.getElementById('mh-input-v').value;
+        const query = Boundary.text(document.getElementById('mh-input-v').value, 200);
         if (!query) { notify("Enter a search term"); return; }
         if (isNew) {
             state.isScanning = false;
@@ -683,12 +832,12 @@
 
         if (state.sources.mixkit) {
             const mkUrl = `https://mixkit.co/free-stock-video/${encodeURIComponent(query)}/?page=${state.page}`;
-            GM_xmlhttpRequest({
+            requestSource({
                 method: "GET", url: mkUrl,
                 onload: (res) => {
                     if (container.innerText.includes('Scanning')) container.innerHTML = '';
-                    const doc = new DOMParser().parseFromString(res.responseText, "text/html");
-                    doc.querySelectorAll('video').forEach(vid => {
+                    const doc = Boundary.html(res.responseText);
+                    [...doc.querySelectorAll('video')].slice(0, 100).forEach(vid => {
                         if (vid.src) renderResult(container, vid.src, vid.src, 'Mixkit', 'video');
                     });
                     finish();
@@ -699,11 +848,11 @@
 
         if (state.sources.pixabayVideo) {
             const pbUrl = `https://pixabay.com/videos/search/${encodeURIComponent(query)}/?pagi=${state.page}`;
-            GM_xmlhttpRequest({
+            requestSource({
                 method: "GET", url: pbUrl,
                 onload: (res) => {
-                    const doc = new DOMParser().parseFromString(res.responseText, "text/html");
-                    doc.querySelectorAll('a[href*="/videos/"]').forEach(a => {
+                    const doc = Boundary.html(res.responseText);
+                    [...doc.querySelectorAll('a[href*="/videos/"]')].slice(0, 100).forEach(a => {
                         const img = a.querySelector('img');
                         const thumb = extractValidImage(img);
                         if (thumb && !a.href.includes('search')) {
@@ -719,11 +868,11 @@
 
         if (state.sources.pexelsVideo) {
             const pxUrl = `https://www.pexels.com/search/videos/${encodeURIComponent(query)}/?page=${state.page}`;
-            GM_xmlhttpRequest({
+            requestSource({
                 method: "GET", url: pxUrl, headers: { "User-Agent": navigator.userAgent },
                 onload: (res) => {
-                    const doc = new DOMParser().parseFromString(res.responseText, "text/html");
-                    doc.querySelectorAll('video source').forEach(src => {
+                    const doc = Boundary.html(res.responseText);
+                    [...doc.querySelectorAll('video source')].slice(0, 100).forEach(src => {
                         if (src.type === 'video/mp4') renderResult(container, src.src, src.src, 'Pexels', 'video');
                     });
                     finish();
@@ -734,18 +883,18 @@
 
         if (state.sources.youtube) {
             const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}+4k`;
-            GM_xmlhttpRequest({
+            requestSource({
                 method: "GET", url: ytUrl,
                 onload: (res) => {
                     const match = res.responseText.match(/var ytInitialData = ({.*?});/);
                     if (match && match[1]) {
                         try {
-                            const data = JSON.parse(match[1]);
+                            const data = Boundary.json(match[1]);
                             const contents = data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents;
                             if (contents) {
-                                contents.forEach(section => {
+                                contents.slice(0, 20).forEach(section => {
                                     const items = section?.itemSectionRenderer?.contents || [];
-                                    items.forEach(item => {
+                                    items.slice(0, 100).forEach(item => {
                                         const vid = item?.videoRenderer;
                                         if (vid && vid.videoId) {
                                             const thumb = `https://i.ytimg.com/vi/${vid.videoId}/hqdefault.jpg`;
@@ -755,7 +904,7 @@
                                     });
                                 });
                             }
-                        } catch (e) {}
+                        } catch (error) { recordDiagnostic('youtube-parse', error); }
                     }
                     finish();
                 },
@@ -773,11 +922,12 @@
             state.foundItems.clear();
         }
         const foundItems = state.foundItems;
+        const canAdd = (value) => value && !foundItems.has(value) && foundItems.size < 1000;
 
         if (type === 'image') {
             document.querySelectorAll('img').forEach(img => {
                 const src = extractValidImage(img);
-                if (src && !foundItems.has(src) && src.length < 1000) {
+                if (canAdd(src) && src.length <= Boundary.MAX_URL_LENGTH) {
                     foundItems.add(src);
                     if (container.innerText.includes('Scanning')) container.innerHTML = '';
                     renderResult(container, src, src, 'Page Scan');
@@ -785,7 +935,7 @@
             });
             document.querySelectorAll('[style*="background-image"]').forEach(el => {
                 const match = el.style.backgroundImage.match(/url\(["']?([^"')]+)["']?\)/);
-                if (match && match[1] && !foundItems.has(match[1])) {
+                if (match && canAdd(match[1]) && match[1].length <= Boundary.MAX_URL_LENGTH) {
                     foundItems.add(match[1]);
                     if (container.innerText.includes('Scanning')) container.innerHTML = '';
                     renderResult(container, match[1], match[1], 'Background');
@@ -795,24 +945,19 @@
             document.querySelectorAll('video').forEach(vid => {
                 const src = vid.src || vid.querySelector('source')?.src;
                 const poster = vid.poster;
-                if (src && !foundItems.has(src)) {
+                if (canAdd(src)) {
                     foundItems.add(src);
                     if (container.innerText.includes('Scanning')) container.innerHTML = '';
                     renderResult(container, poster || src, src, TEXT.vid_tag, 'video');
                 }
             });
-            const rawHtml = document.body.innerHTML;
-            const mp4Matches = rawHtml.match(/https?:\/\/[^\s"']+\.mp4([^\s"']*)/g);
-            if (mp4Matches) {
-                mp4Matches.forEach(url => {
-                    let clean = url.replace(/\\/g, '').replace(/["']/g, '');
-                    if (clean.length < 500 && !foundItems.has(clean)) {
-                        foundItems.add(clean);
-                        if (container.innerText.includes('Scanning')) container.innerHTML = '';
-                        renderResult(container, clean, clean, TEXT.xray_src, 'video');
-                    }
-                });
-            }
+            [...document.querySelectorAll('[href*=".mp4"], [src*=".mp4"]')].slice(0, 2000).forEach((element) => {
+                const clean = absoluteUrl(element.href || element.src);
+                if (!canAdd(clean)) return;
+                foundItems.add(clean);
+                if (container.innerText.includes('Scanning')) container.innerHTML = '';
+                renderResult(container, clean, clean, TEXT.xray_src, 'video');
+            });
         }
     }
 
@@ -831,7 +976,7 @@
         }
         const badge = document.createElement('div');
         badge.className = 'mh-badge';
-        badge.textContent = String(label);
+        badge.textContent = Boundary.text(label, 80);
         div.append(media, badge);
         div.onclick = () => {
             const isVideoFile = safeFull.match(/\.(mp4|webm|mkv|mov|avi|m4v)(\?|$)/i) || safeFull.includes('/video');
