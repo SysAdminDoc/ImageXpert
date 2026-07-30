@@ -21,6 +21,7 @@ The site remains dependency-free and no-build: `index.html` loads same-origin CS
   legacy-unknown links cannot be redispatched and instead offer local-file or
   manual-engine recovery.
 - Tampermonkey userscript and Chrome MV3 companion extension for right-click image handoff.
+- Persistent English and Spanish UI selection in Settings, plus an expansion-test locale for layout QA.
 - PWA manifest and offline shell for installable use.
 - Cache-first versioned PWA updates that keep the active shell intact until a
   visible **Save and reload** action; failed installs discard only the incomplete

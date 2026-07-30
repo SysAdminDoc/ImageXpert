@@ -9,7 +9,8 @@ import { inspectProvenance } from './modules/provenance-controller.mjs';
 
 const Core = window.ImageXpertCore;
 const I18n = window.ImageXpertI18n;
-const activeLocale = I18n.apply(document, navigator.language);
+let activeLocale = I18n.getLocale(localStorage, navigator.language);
+I18n.apply(document, activeLocale);
 const APP_VERSION = '1.2.0';
 const SEARCH_ENGINES = createEngineRegistry();
 const BUILTIN_ENGINE_IDS = Object.freeze(Object.keys(SEARCH_ENGINES));
@@ -95,6 +96,10 @@ const lifecycleText = document.getElementById('lifecycleText');
 const activateUpdateBtn = document.getElementById('activateUpdateBtn');
 let activatePendingUpdate = null;
 
+function tr(key, values = {}) {
+    return I18n.t(key, activeLocale, values);
+}
+
 function showToast(msg, icon = '✓', err = false) {
     const t = document.getElementById('toast');
     document.getElementById('toastMessage').textContent = msg;
@@ -150,7 +155,7 @@ function renderDiagnostics() {
     if (!list) return;
     list.textContent = diagnostics.length
         ? diagnostics.slice(-20).map((event) => `${event.timestamp} ${event.phase} ${event.engine || '-'} ${event.code} ${event.latencyMs}ms ${event.detail}`).join('\n')
-        : 'No diagnostic events.';
+        : tr('diagnostics.empty');
 }
 
 function renderFileMetadata() {
@@ -158,11 +163,11 @@ function renderFileMetadata() {
     container.replaceChildren();
     if (!currentFileMetadata) return;
     const entries = [
-        ['Type', currentFileMetadata.type || 'Unknown'],
-        ['Size', formatBytes(currentFileMetadata.size, activeLocale)],
-        ['Dimensions', currentFileMetadata.width && currentFileMetadata.height ? `${currentFileMetadata.width} × ${currentFileMetadata.height}` : 'Pending'],
-        ['Modified', currentFileMetadata.lastModified ? new Date(currentFileMetadata.lastModified).toLocaleDateString(activeLocale) : 'Unknown'],
-        ['C2PA provenance', `${currentProvenance.status}; signature ${currentProvenance.signatureValidity || 'unknown'}; trust ${currentProvenance.trust || 'unknown'} — ${currentProvenance.detail}`]
+        [tr('metadata.type'), currentFileMetadata.type || tr('value.unknown')],
+        [tr('metadata.size'), formatBytes(currentFileMetadata.size, activeLocale)],
+        [tr('metadata.dimensions'), currentFileMetadata.width && currentFileMetadata.height ? `${I18n.formatNumber(currentFileMetadata.width, activeLocale)} × ${I18n.formatNumber(currentFileMetadata.height, activeLocale)}` : tr('value.pending')],
+        [tr('metadata.modified'), currentFileMetadata.lastModified ? I18n.formatDate(currentFileMetadata.lastModified, activeLocale) : tr('value.unknown')],
+        [tr('metadata.provenance'), `${currentProvenance.status}; signature ${currentProvenance.signatureValidity || 'unknown'}; trust ${currentProvenance.trust || 'unknown'} — ${currentProvenance.detail}`]
     ];
     for (const [label, value] of entries) {
         const card = document.createElement('div');
@@ -258,10 +263,8 @@ function saveHistoryData() {
 function syncPrivacyUI() {
     const localOnly = settings.noUpload || !externalUploadAuthorized;
     document.getElementById('privacyModeLabel').textContent = I18n.t(localOnly ? 'privacy.local' : 'privacy.external', activeLocale);
-    document.getElementById('privacyModeDescription').textContent = localOnly
-        ? 'Local files stay on this device. Engines open their manual upload pages.'
-        : 'Session only: local files become public Litterbox URLs for 1 hour, then selected engines receive those URLs.';
-    document.getElementById('privacyModeBtn').textContent = localOnly ? 'Enable external upload' : 'Use local-only mode';
+    document.getElementById('privacyModeDescription').textContent = tr(localOnly ? 'privacy.localDescription' : 'privacy.externalDescription');
+    document.getElementById('privacyModeBtn').textContent = tr(localOnly ? 'privacy.enable' : 'privacy.disable');
     document.getElementById('noUploadToggle').classList.toggle('on', localOnly);
     document.getElementById('noUploadToggle').setAttribute('aria-checked', String(localOnly));
     document.getElementById('uploadPolicyLink').hidden = localOnly;
@@ -389,13 +392,16 @@ function renderDispatchQueue() {
         const retry = document.createElement('button');
         retry.type = 'button';
         retry.className = 'history-btn';
-        retry.textContent = ['opened'].includes(dispatch.status) ? 'Open again' : 'Open / retry';
+        retry.textContent = tr(['opened'].includes(dispatch.status) ? 'dispatch.openAgain' : 'dispatch.openRetry');
         retry.addEventListener('click', () => openDispatch(dispatch));
         row.append(name, status, retry);
         list.append(row);
     }
     const pending = dispatches.filter((item) => ['queued', 'manual-only', 'blocked', 'failed'].includes(item.status)).length;
-    document.getElementById('dispatchSummary').textContent = `${dispatches.length} engine${dispatches.length === 1 ? '' : 's'} • ${pending} ready to open`;
+    document.getElementById('dispatchSummary').textContent = tr(dispatches.length === 1 ? 'dispatch.summaryOne' : 'dispatch.summary', {
+        count: I18n.formatNumber(dispatches.length, activeLocale),
+        pending: I18n.formatNumber(pending, activeLocale)
+    });
     document.getElementById('openQueuedBtn').disabled = pending === 0;
 }
 
@@ -665,7 +671,7 @@ function renderBatch(activeIndex = 0) {
         const choose = document.createElement('button');
         choose.type = 'button';
         choose.className = 'history-btn';
-        choose.textContent = 'Preview';
+        choose.textContent = tr('batch.preview');
         choose.addEventListener('click', () => {
             renderBatch(idx);
             currentFileMetadata = currentBatch[idx].metadata || null;
@@ -678,11 +684,11 @@ function renderBatch(activeIndex = 0) {
         checkbox.type = 'checkbox';
         checkbox.checked = item.selected;
         checkbox.addEventListener('change', () => { item.selected = checkbox.checked; });
-        selection.append(checkbox, ' Include');
+        selection.append(checkbox, activeLocale === 'es' ? ' Incluir' : ' Include');
         const retry = document.createElement('button');
         retry.type = 'button';
         retry.className = 'history-btn';
-        retry.textContent = item.status === 'processing' ? 'Cancel' : 'Retry';
+        retry.textContent = tr(item.status === 'processing' ? 'batch.cancel' : 'batch.retry');
         retry.hidden = !['processing', 'failed', 'cancelled'].includes(item.status);
         retry.addEventListener('click', async () => {
             if (item.status === 'processing') {
@@ -986,7 +992,7 @@ function clearImage() {
     previewImage.src = '';
     dropZone.classList.remove('has-image');
     urlInput.value = '';
-    imageInfo.textContent = 'Ready';
+    imageInfo.textContent = tr('state.ready');
     document.getElementById('hashGrid').innerHTML = '';
     renderFileMetadata();
     renderBatch();
@@ -999,7 +1005,7 @@ function renderHistory() {
     if (history.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'history-empty';
-        empty.textContent = 'No searches yet';
+        empty.textContent = tr('history.empty');
         list.append(empty);
         return;
     }
@@ -1013,7 +1019,7 @@ function renderHistory() {
             const image = document.createElement('img');
             image.className = 'history-thumb';
             image.src = item.thumb;
-            image.alt = 'Search history thumbnail';
+            image.alt = activeLocale === 'es' ? 'Miniatura del historial de búsquedas' : 'Search history thumbnail';
             image.loading = 'lazy';
             image.addEventListener('error', () => image.remove());
             row.append(image);
@@ -1025,16 +1031,16 @@ function renderHistory() {
         time.textContent = formatTime(item.time);
         const engines = document.createElement('div');
         engines.className = 'history-engines';
-        engines.textContent = item.engines.map((id) => SEARCH_ENGINES[id]?.name || id).join(', ');
+        engines.textContent = I18n.formatList(item.engines.map((id) => SEARCH_ENGINES[id]?.name || id), activeLocale);
         const availabilityLabel = document.createElement('div');
         availabilityLabel.className = 'history-availability';
         availabilityLabel.textContent = availability === 'active'
-            ? `Hosted URL available until ${new Date(item.expiresAt).toLocaleTimeString(activeLocale)}`
+            ? `${tr('history.active')}: ${new Intl.DateTimeFormat(activeLocale === 'qps' ? 'en' : activeLocale, { timeStyle: 'short' }).format(new Date(item.expiresAt))}`
             : availability === 'expired'
-                ? 'Hosted URL expired — reselect the local file or open manual engine pages'
+                ? tr('history.expired')
                 : availability === 'expiry-unknown'
-                    ? 'Legacy hosted URL expiry unknown — reselect the local file or use manual pages'
-                    : 'Remote URL';
+                    ? tr('history.unknown')
+                    : tr('history.remote');
         const actions = document.createElement('div');
         actions.className = 'history-actions';
         const availableActions = transientUnavailable
@@ -1065,10 +1071,12 @@ function renderHistory() {
 
 function formatTime(ts) {
     const diff = Date.now() - ts;
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return new Date(ts).toLocaleDateString(activeLocale);
+    const intlLocale = activeLocale === 'qps' ? 'en' : activeLocale;
+    const relative = new Intl.RelativeTimeFormat(intlLocale, { numeric: 'auto' });
+    if (diff < 60000) return relative.format(0, 'second');
+    if (diff < 3600000) return relative.format(-Math.floor(diff / 60000), 'minute');
+    if (diff < 86400000) return relative.format(-Math.floor(diff / 3600000), 'hour');
+    return I18n.formatDate(ts, activeLocale);
 }
 
 window.searchFromHistory = (i) => {
@@ -1124,7 +1132,36 @@ function closePanel() {
 }
 
 function updateEngineSelectionCount() {
-    document.getElementById('engineSelectionCount').textContent = `${activeEngines.length} selected`;
+    document.getElementById('engineSelectionCount').textContent = tr('engines.selected', {
+        count: I18n.formatNumber(activeEngines.length, activeLocale)
+    });
+}
+
+function applyLocale(locale, persist = true) {
+    activeLocale = persist ? I18n.persistLocale(localStorage, locale) : I18n.resolveLocale(locale);
+    I18n.apply(document, activeLocale);
+    const select = document.getElementById('localeSelect');
+    if (select) select.value = activeLocale;
+    syncPrivacyUI();
+    updateEngineSelectionCount();
+    renderDiagnostics();
+    renderFileMetadata();
+    renderBatch();
+    renderDispatchQueue();
+    renderHistory();
+    renderEngineGuidance();
+    appendCustomEngineSummary();
+}
+
+function appendCustomEngineSummary() {
+    const count = customEngineManifest.engines.length;
+    const summary = document.getElementById('customEngineSummary');
+    if (!summary) return;
+    summary.textContent = count
+        ? (activeLocale === 'es'
+            ? `${I18n.formatNumber(count, activeLocale)} motor${count === 1 ? '' : 'es'} personalizado${count === 1 ? '' : 's'} instalado${count === 1 ? '' : 's'}.`
+            : `${I18n.formatNumber(count, activeLocale)} custom engine${count === 1 ? '' : 's'} installed.`)
+        : tr('custom.empty');
 }
 
 function appendCustomEngineControls() {
@@ -1145,13 +1182,11 @@ function appendCustomEngineControls() {
             name.textContent = record.displayName;
             const metadata = document.createElement('span');
             metadata.className = 'engine-meta';
-            metadata.textContent = 'custom';
+            metadata.textContent = tr('value.custom');
             button.append(dot, name, metadata);
             bar.append(button);
         });
-    document.getElementById('customEngineSummary').textContent = customEngineManifest.engines.length
-        ? `${customEngineManifest.engines.length} custom engine${customEngineManifest.engines.length === 1 ? '' : 's'} installed.`
-        : 'No custom engines installed. Imports are data-only HTTPS templates.';
+    appendCustomEngineSummary();
     const backup = sessionStorage.getItem('rs_custom_engine_backup');
     document.getElementById('undoEnginesBtn').hidden = !backup;
 }
@@ -1493,8 +1528,10 @@ document.getElementById('clearHistoryBtn').addEventListener('click', () => {
 document.getElementById('autoSearchToggle').addEventListener('click', function() { this.classList.toggle('on'); settings.autoSearch = this.classList.contains('on'); this.setAttribute('aria-checked', String(settings.autoSearch)); saveSettings(); });
 document.getElementById('saveHistoryToggle').addEventListener('click', function() { this.classList.toggle('on'); settings.saveHistory = this.classList.contains('on'); this.setAttribute('aria-checked', String(settings.saveHistory)); saveSettings(); });
 document.getElementById('noUploadToggle').addEventListener('click', () => setExternalUploadEnabled(settings.noUpload));
+document.getElementById('localeSelect').addEventListener('change', (event) => applyLocale(event.target.value));
 
 // Init
+document.getElementById('localeSelect').value = activeLocale;
 document.getElementById('autoSearchToggle').classList.toggle('on', settings.autoSearch);
 document.getElementById('saveHistoryToggle').classList.toggle('on', settings.saveHistory);
 document.getElementById('noUploadToggle').classList.toggle('on', settings.noUpload);
@@ -1529,16 +1566,16 @@ if (!prefillImage && updateRecovery?.source && Core.isHttpUrl(updateRecovery.sou
 
 function renderLifecycleState(state) {
     const messages = {
-        offline: 'Offline — local analysis and the cached shell remain available.',
-        online: 'Connection restored.',
-        installing: 'A new ImageXpert version is downloading in the background.',
-        'update-ready': 'Update ready. Save the current workspace and reload when convenient.',
-        activating: 'Saving workspace and activating the update…',
-        activated: 'Update activated. Reloading…',
-        'install-failed': 'Update download failed. The current offline version remains available.'
+        offline: 'lifecycle.offline',
+        online: 'lifecycle.online',
+        installing: 'lifecycle.installing',
+        'update-ready': 'lifecycle.updateReady',
+        activating: 'lifecycle.activating',
+        activated: 'lifecycle.activated',
+        'install-failed': 'lifecycle.installFailed'
     };
     lifecycleBanner.dataset.state = state;
-    lifecycleText.textContent = messages[state] || 'ImageXpert is ready.';
+    lifecycleText.textContent = tr(messages[state] || 'lifecycle.ready');
     lifecycleBanner.hidden = !messages[state] || ['online'].includes(state);
     activateUpdateBtn.hidden = state !== 'update-ready';
 }

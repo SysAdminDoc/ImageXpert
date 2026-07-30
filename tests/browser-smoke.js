@@ -488,6 +488,49 @@ async function main() {
             });
         }
 
+        await report('Spanish and expansion locales persist without layout overflow', async () => {
+            await setViewport(client, 1280, 720);
+            const pseudo = await client.evaluate(`(() => {
+                const select = document.getElementById('localeSelect');
+                select.value = 'qps';
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                return {
+                    lang: document.documentElement.lang,
+                    locale: document.documentElement.dataset.locale,
+                    saved: localStorage.getItem('rs_locale'),
+                    title: document.getElementById('workspaceTitle').textContent,
+                    scrollWidth: document.documentElement.scrollWidth,
+                    innerWidth
+                };
+            })()`);
+            assert.equal(pseudo.lang, 'en-xa');
+            assert.equal(pseudo.locale, 'qps');
+            assert.equal(pseudo.saved, 'qps');
+            assert.match(pseudo.title, /^［/);
+            assert.ok(pseudo.scrollWidth <= pseudo.innerWidth, JSON.stringify(pseudo));
+
+            await client.evaluate(`(() => {
+                const select = document.getElementById('localeSelect');
+                select.value = 'es';
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            })()`);
+            await client.send('Page.reload', { ignoreCache: true });
+            await waitForApp(client);
+            const spanish = await client.evaluate(`({
+                lang: document.documentElement.lang,
+                saved: localStorage.getItem('rs_locale'),
+                heading: document.getElementById('workspaceTitle').textContent,
+                aria: document.getElementById('historyBtn').getAttribute('aria-label')
+            })`);
+            assert.equal(spanish.lang, 'es');
+            assert.equal(spanish.saved, 'es');
+            assert.match(spanish.heading, /Rastrea/);
+            assert.equal(spanish.aria, 'Historial');
+            await client.evaluate(`localStorage.setItem('rs_locale', 'en')`);
+            await client.send('Page.reload', { ignoreCache: true });
+            await waitForApp(client);
+        });
+
         await report('CSP-constrained module shell reloads from the offline cache', async () => {
             await client.evaluate('navigator.serviceWorker.ready.then(() => true)');
             await client.send('Page.navigate', { url: `http://127.0.0.1:${httpPort}/` });

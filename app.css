@@ -792,6 +792,17 @@ body {
 }
 
 .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+.locale-select {
+    max-width: 150px;
+    margin-left: 14px;
+    padding: 8px 28px 8px 10px;
+    color: var(--text-primary);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+}
+.locale-select:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
 .settings-label { font-weight: 500; }
 .settings-desc { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; }
 

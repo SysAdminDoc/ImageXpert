@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "Complemento ImageXpert"
+  },
+  "extensionDescription": {
+    "message": "Haz clic derecho en cualquier imagen web y búscala con ImageXpert."
+  },
+  "contextMenuSearch": {
+    "message": "Buscar con ImageXpert"
+  }
+}

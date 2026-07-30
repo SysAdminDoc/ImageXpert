@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         MediaHunter Lite
+// @name:es      MediaHunter Lite
 // @namespace    https://tampermonkey.net/
 // @version      1.2.0
 // @updateURL      https://raw.githubusercontent.com/SysAdminDoc/ImageXpert/main/MediaHunter_Lite.user.js
 // @downloadURL    https://raw.githubusercontent.com/SysAdminDoc/ImageXpert/main/MediaHunter_Lite.user.js
 // @description  Lightweight media search & download tool. Deep Scan pages for images/videos, Reverse Image Search, Batch Download.
+// @description:es Herramienta ligera para buscar y descargar imágenes y vídeos, escanear páginas y realizar búsquedas inversas.
 // @author       Debloated Fork
 // @icon         https://img.icons8.com/?size=100&id=zS0X1cipar3P&format=png&color=000000
 // @match        https://*/*
@@ -164,7 +166,7 @@
         gear: `<svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.58 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`
     };
 
-    const TEXT = {
+    const TEXT_EN = {
         title: "MEDIAHUNTER", subtitle: "LITE",
         tab_p: "PHOTOS", tab_v: "VIDEOS", tab_h: "HISTORY", tab_c: "CONFIG",
         ph_p: "Search...", ph_v: "Search Videos...",
@@ -176,6 +178,19 @@
         vid_tag: "Video Tag", file_link: "File Link", xray_src: "Deep Scan", yt_copy: "Link Copied!",
         cfg_theme: "UI THEME", cfg_hide: "HIDE UI", power_off: "Hide Interface"
     };
+    const TEXT_ES = {
+        title: "MEDIAHUNTER", subtitle: "LITE",
+        tab_p: "FOTOS", tab_v: "VÍDEOS", tab_h: "HISTORIAL", tab_c: "AJUSTES",
+        ph_p: "Buscar...", ph_v: "Buscar vídeos...",
+        lbl_int: "FUENTES", lbl_ext: "🌍 BÚSQUEDA EXTERNA", lbl_ori: "ORIENTACIÓN",
+        btn_p: "🚀 BUSCAR", btn_scan_p: "👁️ ESCANEAR FOTOS", btn_scan_v: "👁️ ESCANEAR VÍDEOS",
+        btn_v: "🎥 BUSCAR VÍDEOS", btn_ext: "🌐 ABRIR TODOS LOS MOTORES",
+        btn_clr: "Borrar historial", btn_dl: "DESCARGAR", load: "Escaneando...", dl_wait: "⏳...",
+        empty: "¡Vacío!",
+        vid_tag: "Etiqueta de vídeo", file_link: "Enlace de archivo", xray_src: "Escaneo profundo", yt_copy: "¡Enlace copiado!",
+        cfg_theme: "TEMA VISUAL", cfg_hide: "OCULTAR INTERFAZ", power_off: "Ocultar interfaz"
+    };
+    const TEXT = /^es(?:-|$)/i.test(navigator.language) ? TEXT_ES : TEXT_EN;
 
     const IMAGEXPERT_URL = 'https://sysadmindoc.github.io/ImageXpert/';
     const MEDIAHUNTER_VERSION = '1.2.0';

@@ -5,7 +5,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: MENU_ID,
-      title: 'Search with ImageXpert',
+      title: chrome.i18n.getMessage('contextMenuSearch'),
       contexts: ['image']
     });
   });

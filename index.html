@@ -19,69 +19,69 @@
             <h1>Image<span>Xpert</span></h1>
         </div>
         <div class="header-actions">
-            <button class="header-btn" id="historyBtn" aria-label="History"><span class="nav-icon" aria-hidden="true">↶</span><span data-i18n="nav.history">History</span></button>
-            <button class="header-btn" id="helpBtn" aria-label="How it works"><span class="nav-icon" aria-hidden="true">?</span><span data-i18n="nav.help">How it works</span></button>
+            <button class="header-btn" id="historyBtn" aria-label="History" data-i18n-aria-label="nav.history"><span class="nav-icon" aria-hidden="true">↶</span><span data-i18n="nav.history">History</span></button>
+            <button class="header-btn" id="helpBtn" aria-label="How it works" data-i18n-aria-label="nav.help"><span class="nav-icon" aria-hidden="true">?</span><span data-i18n="nav.help">How it works</span></button>
         </div>
     </header>
 
     <div class="lifecycle-banner" id="lifecycleBanner" role="status" aria-live="polite" hidden>
-        <span id="lifecycleText">ImageXpert is ready.</span>
-        <button class="history-btn" id="activateUpdateBtn" type="button" hidden>Save and reload</button>
+        <span id="lifecycleText" data-i18n="lifecycle.ready">ImageXpert is ready.</span>
+        <button class="history-btn" id="activateUpdateBtn" type="button" data-i18n="lifecycle.reload" hidden>Save and reload</button>
     </div>
 
     <main class="main" id="mainContent" tabindex="-1">
         <section class="workspace-heading" aria-labelledby="workspaceTitle">
             <div>
-                <p class="workspace-kicker">Private visual intelligence workspace</p>
-                <h2 id="workspaceTitle">Trace an image across the open web</h2>
+                <p class="workspace-kicker" data-i18n="workspace.kicker">Private visual intelligence workspace</p>
+                <h2 id="workspaceTitle" data-i18n="workspace.title">Trace an image across the open web</h2>
             </div>
-            <div class="workspace-badges" aria-label="Workspace capabilities">
-                <span class="workspace-badge">12 built-in engines</span>
-                <span class="workspace-badge secure">Processed in this browser</span>
+            <div class="workspace-badges" aria-label="Workspace capabilities" data-i18n-aria-label="workspace.capabilities">
+                <span class="workspace-badge" data-i18n="workspace.engines">12 built-in engines</span>
+                <span class="workspace-badge secure" data-i18n="workspace.local">Processed in this browser</span>
             </div>
         </section>
 
-        <section class="intake-column" aria-label="Image intake and dispatch">
+        <section class="intake-column" aria-label="Image intake and dispatch" data-i18n-aria-label="intake.label">
 
-        <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Choose image or video files">
+        <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Choose image or video files" data-i18n-aria-label="drop.label">
             <div class="drop-content">
                 <div class="drop-icon" aria-hidden="true"></div>
                 <h2 class="drop-title" data-i18n="drop.title">Drop an image or short video</h2>
                 <p class="drop-subtitle" data-i18n="drop.subtitle">Local files stay on this device unless you explicitly enable a 1-hour external upload.</p>
                 <div class="drop-methods">
-                    <div class="drop-method"><span>📁</span> <strong>Drop</strong> a file</div>
-                    <div class="drop-method"><span>📋</span> <strong>Paste</strong> an image</div>
-                    <div class="drop-method"><span>🖱️</span> <strong>Click</strong> to browse</div>
-                    <button type="button" class="drop-method camera-btn" id="cameraBtn"><span>📱</span> <strong>Camera</strong></button>
+                    <div class="drop-method" data-i18n="drop.file">📁 Drop a file</div>
+                    <div class="drop-method" data-i18n="drop.paste">📋 Paste an image</div>
+                    <div class="drop-method" data-i18n="drop.browse">🖱️ Click to browse</div>
+                    <button type="button" class="drop-method camera-btn" id="cameraBtn" data-i18n="drop.camera">📱 Camera</button>
                 </div>
             </div>
 
             <div class="preview-container">
                 <div class="preview-image-wrap">
-                    <img class="preview-image" id="previewImage" alt="Selected image preview">
-                    <canvas class="roi-canvas" id="roiCanvas" role="region" tabindex="0" aria-label="Image region selector" aria-describedby="roiInstructions" hidden></canvas>
-                    <span class="visually-hidden" id="roiInstructions">Drag to select. With a keyboard, use arrow keys to move the selection, Shift plus arrow keys to resize it, Enter to apply, or Escape to cancel.</span>
+                    <img class="preview-image" id="previewImage" alt="Selected image preview" data-i18n-alt="preview.alt">
+                    <canvas class="roi-canvas" id="roiCanvas" role="region" tabindex="0" aria-label="Image region selector" data-i18n-aria-label="roi.label" aria-describedby="roiInstructions" hidden></canvas>
+                    <span class="visually-hidden" id="roiInstructions" data-i18n="roi.instructions">Drag to select. With a keyboard, use arrow keys to move the selection, Shift plus arrow keys to resize it, Enter to apply, or Escape to cancel.</span>
                 </div>
                 <div class="preview-actions">
-                    <div class="preview-info"><span id="imageInfo">Ready</span></div>
+                    <div class="preview-info"><span id="imageInfo" data-i18n="state.ready">Ready</span></div>
                     <div class="preview-buttons">
-                        <button class="action-btn primary" id="searchAgainBtn"><span>🔍</span> Search Again</button>
-                        <button class="action-btn" id="copyLinkBtn"><span>🔗</span> Copy Link</button>
-                        <button class="action-btn" id="exportCaseBtn">Export Case</button>
-                        <button class="action-btn" id="downloadBtn"><span>⬇️</span> Download</button>
-                        <button class="action-btn danger" id="clearBtn"><span>✕</span> Clear</button>
+                        <button class="action-btn primary" id="searchAgainBtn" data-i18n="action.searchAgain">🔍 Search Again</button>
+                        <button class="action-btn" id="copyLinkBtn" data-i18n="action.copyLink">🔗 Copy Link</button>
+                        <button class="action-btn" id="exportCaseBtn" data-i18n="action.exportCase">Export Case</button>
+                        <button class="action-btn" id="downloadBtn" data-i18n="action.download">⬇️ Download</button>
+                        <button class="action-btn danger" id="clearBtn" data-i18n="action.clear">✕ Clear</button>
                     </div>
                 </div>
                 <div class="utility-panel">
                     <div class="utility-row">
-                        <span class="utility-label">Local preprocess</span>
-                        <button class="action-btn" id="rotateBtn">Rotate 90</button>
-                        <button class="action-btn" id="cropBtn">Center Crop</button>
-                        <button class="action-btn" id="trimBtn">Trim Bottom Strip</button>
-                        <button class="action-btn" id="roiBtn">Select Region</button>
-                        <button class="action-btn" id="roiResetBtn" hidden>Reset Region</button>
-                        <label class="visually-hidden" for="textContextInput">Optional Bing text context</label>
-                        <input class="context-input" id="textContextInput" type="text" maxlength="120" placeholder="Optional Bing text context">
+                        <span class="utility-label" data-i18n="preprocess.heading">Local preprocess</span>
+                        <button class="action-btn" id="rotateBtn" data-i18n="preprocess.rotate">Rotate 90</button>
+                        <button class="action-btn" id="cropBtn" data-i18n="preprocess.crop">Center Crop</button>
+                        <button class="action-btn" id="trimBtn" data-i18n="preprocess.trim">Trim Bottom Strip</button>
+                        <button class="action-btn" id="roiBtn" data-i18n="preprocess.roi">Select Region</button>
+                        <button class="action-btn" id="roiResetBtn" data-i18n="preprocess.roiReset" hidden>Reset Region</button>
+                        <label class="visually-hidden" for="textContextInput" data-i18n="context.label">Optional Bing text context</label>
+                        <input class="context-input" id="textContextInput" type="text" maxlength="120" placeholder="Optional Bing text context" data-i18n-placeholder="context.label">
                     </div>
                     <div class="hash-grid" id="hashGrid"></div>
                     <div class="file-metadata" id="fileMetadata"></div>
@@ -91,33 +91,33 @@
         </div>
 
         <div class="url-card">
-            <label for="urlInput">Paste image URL</label>
+            <label for="urlInput" data-i18n="url.heading">Paste image URL</label>
             <div class="url-bar">
-                <label class="visually-hidden" for="urlInput">Public image URL</label>
+                <label class="visually-hidden" for="urlInput" data-i18n="url.label">Public image URL</label>
                 <input type="text" class="url-input" id="urlInput" placeholder="https://example.com/image.jpg" data-i18n-placeholder="url.placeholder">
                 <button class="url-btn" id="urlSearchBtn" data-i18n="url.search">Search URL</button>
             </div>
-            <p class="url-card-note">Enter a direct image URL to open it across your selected search engines.</p>
+            <p class="url-card-note" data-i18n="url.note">Enter a direct image URL to open it across your selected search engines.</p>
         </div>
         <section class="dispatch-panel" id="dispatchPanel" aria-labelledby="dispatchHeading" hidden>
             <div class="dispatch-header">
                 <div>
                     <strong id="dispatchHeading" data-i18n="dispatch.heading">Engine dispatch queue</strong>
-                    <div class="dispatch-status" id="dispatchSummary">Nothing queued</div>
+                    <div class="dispatch-status" id="dispatchSummary" data-i18n="dispatch.empty">Nothing queued</div>
                 </div>
-                <button class="action-btn primary" id="openQueuedBtn" type="button">Open queued engines</button>
+                <button class="action-btn primary" id="openQueuedBtn" type="button" data-i18n="dispatch.open">Open queued engines</button>
             </div>
             <div class="dispatch-list" id="dispatchList"></div>
         </section>
         </section>
 
-        <aside class="control-rail" aria-label="Search configuration">
+        <aside class="control-rail" aria-label="Search configuration" data-i18n-aria-label="rail.label">
             <div class="privacy-banner" id="privacyBanner">
                 <div class="privacy-icon" aria-hidden="true"></div>
                 <div>
                     <strong id="privacyModeLabel" data-i18n="privacy.local">Local-only mode</strong>
-                    <p id="privacyModeDescription">Local files stay on this device. Engines open their manual upload pages.</p>
-                    <a class="privacy-policy-link" id="uploadPolicyLink" href="https://catbox.moe/legal.php" target="_blank" rel="noopener noreferrer" hidden>Catbox terms and privacy policy</a>
+                    <p id="privacyModeDescription" data-i18n="privacy.localDescription">Local files stay on this device. Engines open their manual upload pages.</p>
+                    <a class="privacy-policy-link" id="uploadPolicyLink" href="https://catbox.moe/legal.php" target="_blank" rel="noopener noreferrer" data-i18n="privacy.policy" hidden>Catbox terms and privacy policy</a>
                 </div>
                 <button class="action-btn" id="privacyModeBtn" type="button">Change privacy mode</button>
             </div>
@@ -140,116 +140,123 @@
                 </div>
             </details>
 
-            <p class="rail-note">Engine pages open in your browser. Files remain local unless you deliberately switch to the 1-hour external upload flow.</p>
+            <p class="rail-note" data-i18n="engines.note">Engine pages open in your browser. Files remain local unless you deliberately switch to the 1-hour external upload flow.</p>
         </aside>
     </main>
 
     <div class="status-bar" id="statusBar" role="status" aria-live="polite">
         <div class="spinner"></div>
-        <span class="status-text" id="statusText">Processing...</span>
-        <button class="history-btn" id="cancelOperationBtn" type="button" hidden>Cancel</button>
+        <span class="status-text" id="statusText" data-i18n="status.processing">Processing…</span>
+        <button class="history-btn" id="cancelOperationBtn" type="button" data-i18n="action.cancel" hidden>Cancel</button>
         <div class="progress-bar initially-hidden" id="progressBar">
             <div class="progress-fill" id="progressFill"></div>
         </div>
     </div>
 
-    <div class="toast" id="toast" role="status" aria-live="polite"><span id="toastIcon">✓</span><span id="toastMessage">Success!</span></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"><span id="toastIcon">✓</span><span id="toastMessage" data-i18n="toast.success">Success!</span></div>
     <div class="overlay" id="overlay"></div>
 
     <div class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="settingsHeading" aria-hidden="true" inert>
         <div class="panel-header">
             <h2 id="settingsHeading" data-i18n="settings.heading">📂 History & Settings</h2>
-            <button class="panel-close" id="panelClose" aria-label="Close history and settings">✕</button>
+            <button class="panel-close" id="panelClose" aria-label="Close history and settings" data-i18n-aria-label="settings.close">✕</button>
         </div>
         <div class="panel-content">
             <div class="settings-section">
-                <div class="settings-section-title">⚙️ Settings</div>
+                <div class="settings-section-title" data-i18n="settings.section">⚙️ Settings</div>
+                <div class="settings-row">
+                    <div>
+                        <label class="settings-label" for="localeSelect" data-i18n="settings.language">Language</label>
+                        <div class="settings-desc" data-i18n="settings.languageDescription">Apply a language immediately and remember it on this device</div>
+                    </div>
+                    <select class="locale-select" id="localeSelect">
+                        <option value="en" data-i18n="locale.en">English</option>
+                        <option value="es" data-i18n="locale.es">Español</option>
+                        <option value="qps" data-i18n="locale.qps">Expansion test</option>
+                    </select>
+                </div>
                 <div class="settings-row">
                     <div>
                         <div class="settings-label" data-i18n="settings.auto">Auto-search on load</div>
-                        <div class="settings-desc">Immediately search when image loads</div>
+                        <div class="settings-desc" data-i18n="settings.autoDescription">Immediately search when image loads</div>
                     </div>
-                    <button type="button" class="toggle-switch on" id="autoSearchToggle" role="switch" aria-label="Auto-search on load" aria-checked="true"></button>
+                    <button type="button" class="toggle-switch on" id="autoSearchToggle" role="switch" aria-label="Auto-search on load" data-i18n-aria-label="settings.auto" aria-checked="true"></button>
                 </div>
                 <div class="settings-row">
                     <div>
                         <div class="settings-label" data-i18n="settings.history">Save history</div>
-                        <div class="settings-desc">Remember searched images</div>
+                        <div class="settings-desc" data-i18n="settings.historyDescription">Remember searched images</div>
                     </div>
-                    <button type="button" class="toggle-switch on" id="saveHistoryToggle" role="switch" aria-label="Save history" aria-checked="true"></button>
+                    <button type="button" class="toggle-switch on" id="saveHistoryToggle" role="switch" aria-label="Save history" data-i18n-aria-label="settings.history" aria-checked="true"></button>
                 </div>
                 <div class="settings-row">
                     <div>
                         <div class="settings-label" data-i18n="settings.noUpload">No-upload dispatch</div>
-                        <div class="settings-desc">URL images search directly; local files open manual engine upload pages</div>
+                        <div class="settings-desc" data-i18n="settings.noUploadDescription">URL images search directly; local files open manual engine upload pages</div>
                     </div>
-                    <button type="button" class="toggle-switch" id="noUploadToggle" role="switch" aria-label="No-upload dispatch" aria-checked="false"></button>
+                    <button type="button" class="toggle-switch" id="noUploadToggle" role="switch" aria-label="No-upload dispatch" data-i18n-aria-label="settings.noUpload" aria-checked="false"></button>
                 </div>
             </div>
             <div class="settings-section">
                 <div class="settings-section-title" data-i18n="history.heading">📂 Search History</div>
-                <div class="history-list" id="historyList"><div class="history-empty">No searches yet</div></div>
+                <div class="history-list" id="historyList"><div class="history-empty" data-i18n="history.empty">No searches yet</div></div>
             </div>
             <div class="settings-section">
                 <div class="settings-section-title" data-i18n="diagnostics.heading">🩺 Diagnostics</div>
-                <p class="settings-desc">Redacted events exclude image bytes, source URLs, cookies, and page content.</p>
+                <p class="settings-desc" data-i18n="diagnostics.description">Redacted events exclude image bytes, source URLs, cookies, and page content.</p>
                 <div class="history-actions">
-                    <button class="history-btn" type="button" id="copyDiagnosticsBtn">Copy support report</button>
-                    <button class="history-btn" type="button" id="exportDiagnosticsBtn">Export JSON</button>
-                    <button class="history-btn" type="button" id="clearDiagnosticsBtn">Clear diagnostics</button>
+                    <button class="history-btn" type="button" id="copyDiagnosticsBtn" data-i18n="diagnostics.copy">Copy support report</button>
+                    <button class="history-btn" type="button" id="exportDiagnosticsBtn" data-i18n="diagnostics.export">Export JSON</button>
+                    <button class="history-btn" type="button" id="clearDiagnosticsBtn" data-i18n="diagnostics.clear">Clear diagnostics</button>
                 </div>
-                <div class="diagnostics-list" id="diagnosticsList">No diagnostic events.</div>
+                <div class="diagnostics-list" id="diagnosticsList" data-i18n="diagnostics.empty">No diagnostic events.</div>
             </div>
             <div class="settings-section">
-                <div class="settings-section-title">🧩 Custom engines</div>
-                <p class="settings-desc" id="customEngineSummary">No custom engines installed. Imports are data-only HTTPS templates.</p>
+                <div class="settings-section-title" data-i18n="custom.heading">🧩 Custom engines</div>
+                <p class="settings-desc" id="customEngineSummary" data-i18n="custom.empty">No custom engines installed. Imports are data-only HTTPS templates.</p>
                 <div class="history-actions">
-                    <button class="history-btn" type="button" id="importEnginesBtn">Import manifest</button>
-                    <button class="history-btn" type="button" id="exportEnginesBtn">Export manifest</button>
-                    <button class="history-btn" type="button" id="undoEnginesBtn" hidden>Undo import</button>
+                    <button class="history-btn" type="button" id="importEnginesBtn" data-i18n="custom.import">Import manifest</button>
+                    <button class="history-btn" type="button" id="exportEnginesBtn" data-i18n="custom.export">Export manifest</button>
+                    <button class="history-btn" type="button" id="undoEnginesBtn" data-i18n="custom.undo" hidden>Undo import</button>
                 </div>
             </div>
         </div>
         <div class="panel-footer">
-            <button class="action-btn danger full-width-action" id="clearHistoryBtn"><span>🗑️</span> Clear All History</button>
+            <button class="action-btn danger full-width-action" id="clearHistoryBtn" data-i18n="history.clear">🗑️ Clear All History</button>
         </div>
     </div>
 
     <div class="panel" id="helpPanel" role="dialog" aria-modal="true" aria-labelledby="helpHeading" aria-hidden="true" inert>
         <div class="panel-header">
             <h2 id="helpHeading" data-i18n="help.heading">❓ How it works</h2>
-            <button class="panel-close" id="helpClose" aria-label="Close help">✕</button>
+            <button class="panel-close" id="helpClose" aria-label="Close help" data-i18n-aria-label="help.close">✕</button>
         </div>
         <div class="panel-content help-content">
             <div class="info-box">
-                <strong>Review before dispatch</strong><br>
-                ImageXpert prepares a per-engine queue. You choose when each external search page opens.
+                <strong data-i18n="help.reviewTitle">Review before dispatch</strong><br>
+                <span data-i18n="help.reviewBody">ImageXpert prepares a per-engine queue. You choose when each external search page opens.</span>
             </div>
 
-            <h3 class="help-heading">Choose the source path</h3>
+            <h3 class="help-heading" data-i18n="help.sourceHeading">Choose the source path</h3>
             <ol class="help-list">
-                <li><strong class="help-strong">Public URL:</strong> the URL is placed directly into supported engine requests.</li>
-                <li><strong class="help-strong">Local-only file:</strong> hashes and edits stay here; manual engine upload pages are queued.</li>
-                <li><strong class="help-strong">External upload:</strong> after session-only consent, the file becomes a public Litterbox URL for one hour and selected engines receive that URL.</li>
-                <li><strong class="help-strong">Video:</strong> selected keyframes become local image tasks and follow the same privacy choice.</li>
+                <li data-i18n="help.publicUrl">Public URL: the URL is placed directly into supported engine requests.</li>
+                <li data-i18n="help.localFile">Local-only file: hashes and edits stay here; manual engine upload pages are queued.</li>
+                <li data-i18n="help.externalUpload">External upload: after session-only consent, the file becomes a public Litterbox URL for one hour and selected engines receive that URL.</li>
+                <li data-i18n="help.video">Video: selected keyframes become local image tasks and follow the same privacy choice.</li>
             </ol>
 
-            <h3 class="help-heading">Browser and site limits</h3>
-            <p class="help-copy">
-                Remote sites can block pixel access with CORS. The image may still dispatch by URL, while local hashing, cropping, and provenance inspection remain unavailable for that source.
-            </p>
-            <p class="help-copy">
-                If a tab is blocked, its queue row remains visible with an <strong class="help-accent">Open / retry</strong> action. ImageXpert does not require permanent popup permission.
-            </p>
+            <h3 class="help-heading" data-i18n="help.limitsHeading">Browser and site limits</h3>
+            <p class="help-copy" data-i18n="help.cors">Remote sites can block pixel access with CORS. The image may still dispatch by URL, while local hashing, cropping, and provenance inspection remain unavailable for that source.</p>
+            <p class="help-copy" data-i18n="help.popup">If a tab is blocked, its queue row remains visible with an Open / retry action. ImageXpert does not require permanent popup permission.</p>
 
-            <h3 class="help-heading">Choose engines by intent</h3>
+            <h3 class="help-heading" data-i18n="help.intentHeading">Choose engines by intent</h3>
             <div class="guidance-groups" id="engineGuidance"></div>
         </div>
     </div>
 
-    <input type="file" id="fileInput" accept="image/*,video/*" multiple aria-label="Choose images or videos">
-    <input type="file" id="cameraInput" accept="image/*" capture="environment" aria-label="Capture an image">
-    <input type="file" id="engineManifestInput" accept="application/json,.json" aria-label="Import custom engine manifest">
+    <input type="file" id="fileInput" accept="image/*,video/*" multiple aria-label="Choose images or videos" data-i18n-aria-label="file.choose">
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" aria-label="Capture an image" data-i18n-aria-label="file.capture">
+    <input type="file" id="engineManifestInput" accept="application/json,.json" aria-label="Import custom engine manifest" data-i18n-aria-label="file.engineManifest">
 
     <script src="./app-core.js"></script>
     <script src="./i18n.js"></script>

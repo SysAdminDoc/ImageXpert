@@ -23,6 +23,8 @@ foreach ($file in @('background.js', 'icon.png', 'manifest.json')) {
     Copy-Item -LiteralPath (Join-Path $repoRoot "extension\$file") -Destination (Join-Path $stage "site\extension\$file")
     Copy-Item -LiteralPath (Join-Path $repoRoot "extension\$file") -Destination (Join-Path $stage "chrome\$file")
 }
+Copy-Item -LiteralPath (Join-Path $repoRoot 'extension\_locales') -Destination (Join-Path $stage 'site\extension\_locales') -Recurse
+Copy-Item -LiteralPath (Join-Path $repoRoot 'extension\_locales') -Destination (Join-Path $stage 'chrome\_locales') -Recurse
 
 Get-ChildItem -LiteralPath $dist -Filter '*.zip' | Remove-Item -Force
 $siteArchive = Join-Path $dist "ImageXpert-v$version-site.zip"

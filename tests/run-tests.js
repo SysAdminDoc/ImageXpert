@@ -120,9 +120,41 @@ test('file validation reports every discarded input', () => {
 
 test('i18n resolves supported locales and falls back to English', () => {
     assert.equal(i18n.resolveLocale('en-US'), 'en');
+    assert.equal(i18n.resolveLocale('es-MX'), 'es');
+    assert.equal(i18n.resolveLocale('qps-ploc'), 'qps');
     assert.equal(i18n.resolveLocale('zz-ZZ'), 'en');
     assert.equal(i18n.t('app.name', 'zz'), 'ImageXpert');
     assert.equal(i18n.t('missing.key'), 'missing.key');
+    assert.deepEqual(i18n.missingKeys('es'), []);
+    assert.deepEqual(i18n.missingKeys('qps'), []);
+    assert.match(i18n.t('workspace.title', 'qps'), /^［.+~］$/);
+    assert.equal(i18n.t('engines.selected', 'es', { count: 3 }), '3 seleccionados');
+});
+
+test('locale preference persists with browser fallback and Intl formatting', () => {
+    const values = new Map();
+    const storage = {
+        getItem: (key) => values.get(key) || null,
+        setItem: (key, value) => values.set(key, value)
+    };
+    assert.equal(i18n.getLocale(storage, 'es-ES'), 'es');
+    assert.equal(i18n.persistLocale(storage, 'qps-ploc'), 'qps');
+    assert.equal(i18n.getLocale(storage, 'en-US'), 'qps');
+    assert.match(i18n.formatNumber(12345.6, 'es'), /12[.\s]345,6/);
+    assert.match(i18n.formatList(['A', 'B'], 'es'), /A y B/);
+    assert.notEqual(i18n.formatDate('2026-07-29T00:00:00Z', 'es'), '');
+});
+
+test('every static localization binding exists in every locale', () => {
+    const html = fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf8');
+    const keys = [...html.matchAll(/data-i18n(?:-(?:placeholder|aria-label|alt|title))?="([^"]+)"/g)].map((match) => match[1]);
+    assert.ok(keys.length > 70, `expected broad shell coverage, found ${keys.length}`);
+    for (const key of keys) {
+        assert.ok(Object.hasOwn(i18n.dictionaries.en, key), `missing English key: ${key}`);
+        assert.ok(Object.hasOwn(i18n.dictionaries.es, key), `missing Spanish key: ${key}`);
+        assert.ok(Object.hasOwn(i18n.dictionaries.qps, key), `missing pseudo key: ${key}`);
+    }
+    assert.ok(new Set(keys).size > 65, 'expected broad semantic key coverage');
 });
 
 test('custom engine manifests accept data-only HTTPS templates', () => {

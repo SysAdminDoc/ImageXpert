@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "ImageXpert Companion"
+  },
+  "extensionDescription": {
+    "message": "Right-click any web image and search it with ImageXpert."
+  },
+  "contextMenuSearch": {
+    "message": "Search with ImageXpert"
+  }
+}

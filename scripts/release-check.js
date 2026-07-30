@@ -75,6 +75,9 @@ check('PWA and extension security contracts are valid', () => {
     }
     const extension = JSON.parse(read('extension/manifest.json'));
     assert.equal(extension.manifest_version, 3);
+    assert.equal(extension.default_locale, 'en');
+    assert.equal(JSON.parse(read('extension/_locales/en/messages.json')).extensionName.message, 'ImageXpert Companion');
+    assert.equal(JSON.parse(read('extension/_locales/es/messages.json')).extensionName.message, 'Complemento ImageXpert');
     assert.deepEqual(extension.permissions, ['contextMenus']);
     assert.match(extension.content_security_policy.extension_pages, /script-src 'self'/);
     const sw = read('sw.js');
@@ -188,7 +191,13 @@ check('release archives match the current version and allowlists', () => {
     const siteZip = path.join(root, 'dist', `ImageXpert-${expected}-site.zip`);
     assert.equal(fs.existsSync(chromeZip), true, `missing ${path.basename(chromeZip)}`);
     assert.equal(fs.existsSync(siteZip), true, `missing ${path.basename(siteZip)}`);
-    assert.deepEqual(zipEntries(chromeZip).sort(), ['background.js', 'icon.png', 'manifest.json']);
+    assert.deepEqual(zipEntries(chromeZip).sort(), [
+        '_locales/en/messages.json',
+        '_locales/es/messages.json',
+        'background.js',
+        'icon.png',
+        'manifest.json'
+    ].sort());
     assert.deepEqual(zipEntries(siteZip).sort(), [
         'ImageXpert.html',
         'LICENSE',
@@ -197,7 +206,10 @@ check('release archives match the current version and allowlists', () => {
         'app-core.js',
         'app.css',
         'app.js',
+        'extension/_locales/',
         'extension/background.js',
+        'extension/_locales/en/messages.json',
+        'extension/_locales/es/messages.json',
         'extension/icon.png',
         'extension/manifest.json',
         'i18n.js',
