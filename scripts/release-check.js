@@ -36,6 +36,7 @@ function zipEntries(file) {
 check('version strings are synchronized', () => {
     assert.equal(JSON.parse(read('package.json')).version, version);
     assert.equal(JSON.parse(read('extension/manifest.json')).version, version);
+    assert.equal(JSON.parse(read('extension/manifest.firefox.json')).version, version);
     assert.equal(JSON.parse(read('manifest.webmanifest')).version, version);
     assert.match(read('app.js'), new RegExp(`const APP_VERSION = '${version.replaceAll('.', '\\.')}'`));
     const userscript = read('MediaHunter_Lite.user.js');
@@ -190,8 +191,12 @@ check('engine and external URL schemes are HTTPS', () => {
 
 check('release archives match the current version and allowlists', () => {
     const chromeZip = path.join(root, 'dist', `ImageXpert-Chrome-${expected}.zip`);
+    const edgeZip = path.join(root, 'dist', `ImageXpert-Edge-${expected}.zip`);
+    const firefoxZip = path.join(root, 'dist', `ImageXpert-Firefox-${expected}.zip`);
     const siteZip = path.join(root, 'dist', `ImageXpert-${expected}-site.zip`);
     assert.equal(fs.existsSync(chromeZip), true, `missing ${path.basename(chromeZip)}`);
+    assert.equal(fs.existsSync(edgeZip), true, `missing ${path.basename(edgeZip)}`);
+    assert.equal(fs.existsSync(firefoxZip), true, `missing ${path.basename(firefoxZip)}`);
     assert.equal(fs.existsSync(siteZip), true, `missing ${path.basename(siteZip)}`);
     assert.deepEqual(zipEntries(chromeZip).sort(), [
         '_locales/en/messages.json',
@@ -200,6 +205,10 @@ check('release archives match the current version and allowlists', () => {
         'icon.png',
         'manifest.json'
     ].sort());
+    assert.deepEqual(zipEntries(edgeZip).sort(), zipEntries(chromeZip).sort());
+    assert.deepEqual(zipEntries(firefoxZip).sort(), zipEntries(chromeZip).sort());
+    const firefoxManifestEntry = zipEntries(firefoxZip).find((entry) => entry === 'manifest.json');
+    assert.equal(firefoxManifestEntry, 'manifest.json');
     assert.deepEqual(zipEntries(siteZip).sort(), [
         'ImageXpert.html',
         'LICENSE',
@@ -214,6 +223,7 @@ check('release archives match the current version and allowlists', () => {
         'extension/_locales/es/messages.json',
         'extension/icon.png',
         'extension/manifest.json',
+        'extension/manifest.firefox.json',
         'i18n.js',
         'index.html',
         'manifest.webmanifest',
@@ -230,6 +240,11 @@ check('release archives match the current version and allowlists', () => {
         'sw.js',
         'version.json'
     ].sort());
-    const stale = fs.readdirSync(path.join(root, 'dist')).filter((name) => name.endsWith('.zip') && ![path.basename(chromeZip), path.basename(siteZip)].includes(name));
+    const stale = fs.readdirSync(path.join(root, 'dist')).filter((name) => name.endsWith('.zip') && ![
+        path.basename(chromeZip),
+        path.basename(edgeZip),
+        path.basename(firefoxZip),
+        path.basename(siteZip)
+    ].includes(name));
     assert.deepEqual(stale, [], `stale archives: ${stale.join(', ')}`);
 });

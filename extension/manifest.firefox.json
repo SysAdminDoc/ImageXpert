@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "__MSG_extensionName__",
+  "version": "1.2.0",
+  "description": "__MSG_extensionDescription__",
+  "default_locale": "en",
+  "permissions": [
+    "contextMenus"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "imagexpert@sysadmindoc",
+      "strict_min_version": "121.0"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'"
+  },
+  "icons": {
+    "128": "icon.png"
+  }
+}

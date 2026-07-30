@@ -1,19 +1,27 @@
 const IMAGEXPERT_URL = 'https://sysadmindoc.github.io/ImageXpert/';
 const MENU_ID = 'imagexpert-search-image';
+const extensionApi = globalThis.browser || globalThis.chrome;
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({
+extensionApi.runtime.onInstalled.addListener(() => {
+  extensionApi.contextMenus.removeAll(() => {
+    extensionApi.contextMenus.create({
       id: MENU_ID,
-      title: chrome.i18n.getMessage('contextMenuSearch'),
+      title: extensionApi.i18n.getMessage('contextMenuSearch'),
       contexts: ['image']
     });
   });
 });
 
-chrome.contextMenus.onClicked.addListener((info) => {
+extensionApi.contextMenus.onClicked.addListener((info) => {
   if (info.menuItemId !== MENU_ID || !info.srcUrl) return;
-  chrome.tabs.create({
-    url: `${IMAGEXPERT_URL}?image=${encodeURIComponent(info.srcUrl)}`
+  let source;
+  try {
+    source = new URL(info.srcUrl);
+    if (!['http:', 'https:'].includes(source.protocol) || source.username || source.password) return;
+  } catch {
+    return;
+  }
+  extensionApi.tabs.create({
+    url: `${IMAGEXPERT_URL}?image=${encodeURIComponent(source.href)}`
   });
 });

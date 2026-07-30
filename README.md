@@ -22,7 +22,7 @@ The site remains dependency-free and no-build: `index.html` loads same-origin CS
   manual-engine recovery.
 - Local history search and composable date/source/engine/outcome/expiry filters,
   with a versioned metadata export that redacts URLs, thumbnails, filenames, and queries.
-- Tampermonkey userscript and Chrome MV3 companion extension for right-click image handoff.
+- Tampermonkey userscript and Chrome/Edge/Firefox MV3 companion extensions for right-click image handoff.
 - Persistent English and Spanish UI selection in Settings, plus an expansion-test locale for layout QA.
 - Versioned JSON case export/import with a pre-import review, schema migration,
   strict data-only validation, expired-host warnings, and resumable remote cases.
@@ -72,7 +72,8 @@ keyboard region selection, reduced motion, and 200%/400% reflow:
 npm test
 ```
 
-Build the unsigned site and Chrome companion archives with `npm run package`.
+Build the unsigned site plus Chrome, Edge, and Firefox companion archives with
+`npm run package`.
 The same package and test sequence runs in GitHub Actions on pushes and pull
 requests, and publishes the validated unsigned archives as workflow artifacts.
 
@@ -82,9 +83,12 @@ reachability failures are reported but do not fail deterministic validation.
 Each built-in engine exposes capabilities, dispatch method, privacy class,
 active/degraded/deprecated state, and an ISO `lastVerified` date.
 
-## Companion Extension
+## Companion Extensions
 
-Load `extension/` as an unpacked Chrome extension. Right-click a web image and choose `Search with ImageXpert`.
+Chrome and Edge use `extension/manifest.json`; Firefox uses
+`extension/manifest.firefox.json` as its packaged `manifest.json`. The release
+command produces separate unsigned archives for sideloading. Right-click a web
+image and choose `Search with ImageXpert`.
 
 ## MediaHunter userscript permissions
 

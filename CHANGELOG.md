@@ -21,6 +21,7 @@ All notable changes to ImageXpert will be documented in this file.
 - Expanded redacted diagnostics with app/schema/cache/update state, storage quota and persistence, custom-engine totals, and active/expired hosted-record counts.
 - Added portable settings and custom-engine bundles with conflict previews, strict data-only validation, safe local-only defaults, and durable one-click rollback.
 - Added local history search plus date, source, engine, dispatch-outcome, and expiry filters with a versioned redacted metadata export.
+- Added separate unsigned Chrome, Edge, and Firefox MV3 companion packages from one localized, least-privilege background implementation with handoff smoke tests.
 
 ## [v1.2.0] - 2026-07-25
 
