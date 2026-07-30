@@ -2,8 +2,17 @@ const CACHE_NAME = 'imagexpert-v1.2.0';
 const OFFLINE_ASSETS = Object.freeze([
   './',
   './index.html',
+  './app.css',
+  './app.js',
   './app-core.js',
   './i18n.js',
+  './modules/media-controller.js',
+  './modules/dispatch-controller.js',
+  './modules/storage-case-controller.js',
+  './modules/upload-policy-controller.js',
+  './modules/engine-controller.js',
+  './modules/service-worker-controller.js',
+  './modules/ui-controller.js',
   './manifest.webmanifest',
   './icon.png'
 ]);

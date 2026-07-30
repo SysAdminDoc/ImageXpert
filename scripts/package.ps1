@@ -13,11 +13,12 @@ New-Item -ItemType Directory -Path (Join-Path $stage 'chrome') -Force | Out-Null
 
 $siteFiles = @(
     'ImageXpert.html', 'LICENSE', 'MediaHunter_Lite.user.js', 'README.md',
-    'app-core.js', 'i18n.js', 'index.html', 'manifest.webmanifest', 'sw.js', 'version.json'
+    'app-core.js', 'app.css', 'app.js', 'i18n.js', 'index.html', 'manifest.webmanifest', 'sw.js', 'version.json'
 )
 foreach ($file in $siteFiles) {
     Copy-Item -LiteralPath (Join-Path $repoRoot $file) -Destination (Join-Path $stage "site\$file")
 }
+Copy-Item -LiteralPath (Join-Path $repoRoot 'modules') -Destination (Join-Path $stage 'site\modules') -Recurse
 foreach ($file in @('background.js', 'icon.png', 'manifest.json')) {
     Copy-Item -LiteralPath (Join-Path $repoRoot "extension\$file") -Destination (Join-Path $stage "site\extension\$file")
     Copy-Item -LiteralPath (Join-Path $repoRoot "extension\$file") -Destination (Join-Path $stage "chrome\$file")

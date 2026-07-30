@@ -4,6 +4,8 @@
 
 ImageXpert is a static reverse image search hub for fast attribution work. Drop images, paste image URLs, or load short videos; the app dispatches selected engines, computes local hashes, and keeps prior searches in browser storage.
 
+The site remains dependency-free and no-build: `index.html` loads same-origin CSS and JavaScript modules directly under a restrictive Content Security Policy.
+
 ## Features
 
 - 12 reverse-search targets: Google Lens, Yandex, Bing, TinEye, SauceNAO, ASCII2D, TraceMoe, PimEyes, and IQDB variants.

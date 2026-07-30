@@ -8,6 +8,7 @@ All notable changes to ImageXpert will be documented in this file.
 - Added one-hour hosted-link expiry metadata, safe legacy handling, and reselect/manual recovery instead of redispatching stale URLs.
 - Made external-upload authorization session-only with complete public-file, IP metadata, recipient-engine, and host-policy disclosure.
 - Added deterministic GitHub Actions gates for tests, unsigned packaging, archive validation, and artifact publication.
+- Split the static app into same-origin CSS, a module entry point, and focused media, dispatch, storage/case, upload-policy, engine, service-worker, and UI controllers under a restrictive Content Security Policy.
 
 ## [v1.2.0] - 2026-07-25
 

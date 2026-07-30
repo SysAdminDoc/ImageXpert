@@ -37,7 +37,7 @@ check('version strings are synchronized', () => {
     assert.equal(JSON.parse(read('package.json')).version, version);
     assert.equal(JSON.parse(read('extension/manifest.json')).version, version);
     assert.equal(JSON.parse(read('manifest.webmanifest')).version, version);
-    assert.match(read('index.html'), new RegExp(`const APP_VERSION = '${version.replaceAll('.', '\\.')}'`));
+    assert.match(read('app.js'), new RegExp(`const APP_VERSION = '${version.replaceAll('.', '\\.')}'`));
     const userscript = read('MediaHunter_Lite.user.js');
     assert.match(userscript, new RegExp(`@version\\s+${version.replaceAll('.', '\\.')}`));
     assert.match(userscript, new RegExp(`MEDIAHUNTER_VERSION = '${version.replaceAll('.', '\\.')}'`));
@@ -50,12 +50,28 @@ check('branding and metadata reference shipped assets only', () => {
     const html = read('index.html');
     assert.match(html, /<title>ImageXpert/);
     assert.doesNotMatch(html, /banner\.png|ReverseSearch/);
-    for (const asset of ['app-core.js', 'i18n.js', 'manifest.webmanifest', 'icon.png']) {
+    for (const asset of ['app-core.js', 'app.css', 'app.js', 'i18n.js', 'manifest.webmanifest', 'icon.png']) {
         assert.equal(fs.existsSync(path.join(root, asset)), true, `${asset} is missing`);
     }
 });
 
 check('PWA and extension security contracts are valid', () => {
+    const html = read('index.html');
+    assert.match(html, /Content-Security-Policy[^>]+script-src 'self'/);
+    assert.doesNotMatch(html, /<style\b|<script>(?:.|\n)*?<\/script>|style=|fonts\.googleapis|fonts\.gstatic/);
+    assert.match(html, /<script type="module" src="\.\/app\.js"><\/script>/);
+    for (const moduleName of [
+        'media-controller.js',
+        'dispatch-controller.js',
+        'storage-case-controller.js',
+        'upload-policy-controller.js',
+        'engine-controller.js',
+        'service-worker-controller.js',
+        'ui-controller.js'
+    ]) {
+        assert.equal(fs.existsSync(path.join(root, 'modules', moduleName)), true, `${moduleName} is missing`);
+        assert.match(read('app.js'), new RegExp(`modules/${moduleName.replace('.', '\\.')}`));
+    }
     const extension = JSON.parse(read('extension/manifest.json'));
     assert.equal(extension.manifest_version, 3);
     assert.deepEqual(extension.permissions, ['contextMenus']);
@@ -95,12 +111,21 @@ check('release archives match the current version and allowlists', () => {
         'MediaHunter_Lite.user.js',
         'README.md',
         'app-core.js',
+        'app.css',
+        'app.js',
         'extension/background.js',
         'extension/icon.png',
         'extension/manifest.json',
         'i18n.js',
         'index.html',
         'manifest.webmanifest',
+        'modules/dispatch-controller.js',
+        'modules/engine-controller.js',
+        'modules/media-controller.js',
+        'modules/service-worker-controller.js',
+        'modules/storage-case-controller.js',
+        'modules/ui-controller.js',
+        'modules/upload-policy-controller.js',
         'sw.js',
         'version.json'
     ].sort());

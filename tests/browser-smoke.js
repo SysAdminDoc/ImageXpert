@@ -27,6 +27,7 @@ if (!chromePath) {
 
 const mimeTypes = {
     '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
     '.js': 'text/javascript; charset=utf-8',
     '.json': 'application/json; charset=utf-8',
     '.webmanifest': 'application/manifest+json',
@@ -120,6 +121,20 @@ async function waitForApp(client) {
         await sleep(100);
     }
     throw new Error(`Timed out waiting for app initialization: ${client.runtimeErrors().join(' | ')}`);
+}
+
+async function waitForServiceWorkerController(client) {
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+        if (await client.evaluate('Boolean(navigator.serviceWorker.controller)')) return;
+        await sleep(100);
+    }
+    const detail = await client.evaluate(`navigator.serviceWorker.getRegistrations().then(registrations => registrations.map(registration => ({
+        scope: registration.scope,
+        active: registration.active?.state,
+        installing: registration.installing?.state,
+        waiting: registration.waiting?.state
+    })))`);
+    throw new Error(`Timed out waiting for the service worker to control the page: ${JSON.stringify(detail)}`);
 }
 
 async function setViewport(client, width, height) {
@@ -254,6 +269,41 @@ async function main() {
             assert.equal(result.exported, true);
             assert.equal(result.hostedCaseHasExpiry, true);
             assert.equal(result.uploadFailure, true);
+        });
+
+        await report('CSP-constrained module shell reloads from the offline cache', async () => {
+            await client.evaluate('navigator.serviceWorker.ready.then(() => true)');
+            await client.send('Page.navigate', { url: `http://127.0.0.1:${httpPort}/` });
+            await waitForApp(client);
+            await waitForServiceWorkerController(client);
+            await client.send('Network.enable');
+            try {
+                await client.send('Network.emulateNetworkConditions', {
+                    offline: true,
+                    latency: 0,
+                    downloadThroughput: 0,
+                    uploadThroughput: 0
+                });
+                await client.send('Page.reload', { ignoreCache: true });
+                await waitForApp(client);
+                const offlineShell = await client.evaluate(`({
+                    hooksPresent: Boolean(window.__ImageXpertTest),
+                    stylesheetLoaded: [...document.styleSheets].some(sheet => sheet.href?.endsWith('/app.css')),
+                    moduleLoaded: typeof window.__ImageXpertTest?.getState === 'function'
+                })`);
+                assert.equal(offlineShell.hooksPresent, true);
+                assert.equal(offlineShell.stylesheetLoaded, true);
+                assert.equal(offlineShell.moduleLoaded, true);
+            } finally {
+                await client.send('Network.emulateNetworkConditions', {
+                    offline: false,
+                    latency: 0,
+                    downloadThroughput: -1,
+                    uploadThroughput: -1
+                });
+                await client.send('Page.reload', { ignoreCache: true });
+                await waitForApp(client);
+            }
         });
 
         for (const width of [390, 320]) {
