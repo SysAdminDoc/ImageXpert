@@ -1038,6 +1038,37 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
     .workspace-badges { max-width: 330px; }
 }
 
+@media (min-width: 769px) and (max-height: 800px) {
+    .header { min-height: 60px; padding-block: 8px; }
+    .logo-icon { width: 36px; height: 36px; }
+    .main { gap: 12px 18px; padding-top: 12px; padding-bottom: 24px; }
+    .workspace-heading h2 { font-size: clamp(1.35rem, 2vw, 1.75rem); }
+    .workspace-kicker { margin-bottom: 2px; }
+    .workspace-badge { padding-block: 5px; }
+    .intake-column, .control-rail { gap: 10px; }
+    .drop-zone { min-height: clamp(290px, 46vh, 360px); }
+    .drop-zone::before, .drop-zone::after { inset: 16px; }
+    .drop-content { padding: 24px 32px; }
+    .drop-icon { width: 82px; height: 82px; margin-bottom: 14px; }
+    .drop-icon::before { inset: 23px; }
+    .drop-icon::after { width: 16px; left: 46px; top: 52px; }
+    .drop-title { font-size: 1.35rem; margin-bottom: 4px; }
+    .drop-subtitle { font-size: 0.84rem; margin-bottom: 14px; }
+    .drop-method { min-height: 44px; padding-block: 7px; }
+    .url-card { padding: 11px 14px 12px; }
+    .url-card label { margin-bottom: 6px; }
+    .url-card-note { margin-top: 5px; }
+    .url-input { padding-block: 11px; }
+    .privacy-banner { grid-template-columns: 44px minmax(0, 1fr); padding: 12px; }
+    .privacy-icon { width: 42px; height: 42px; }
+    .privacy-icon::before { width: 16px; height: 19px; }
+    .privacy-banner .action-btn { padding-block: 8px; }
+    .engine-picker > summary { padding-block: 11px; }
+    .rail-note { font-size: 0.7rem; }
+    .preview-actions { padding: 10px 14px; }
+    .utility-panel { max-height: 155px; padding: 9px 14px 12px; }
+}
+
 @media (max-width: 768px) {
     body { overflow-x: hidden; }
     .header { min-height: 0; padding: 13px 12px; gap: 10px; }

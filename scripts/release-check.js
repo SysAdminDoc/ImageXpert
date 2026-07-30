@@ -148,6 +148,14 @@ check('accessibility interaction contracts are test-enforced', () => {
     assert.match(smoke, /640, 320/);
 });
 
+check('laptop-height first-viewport contracts are test-enforced', () => {
+    assert.match(read('app.css'), /min-width: 769px\) and \(max-height: 800px/);
+    const smoke = read('tests/browser-smoke.js');
+    assert.match(smoke, /\[\[1366, 768\], \[1280, 720\]\]/);
+    assert.match(smoke, /rotateReachable/);
+    assert.match(smoke, /engineCollapsed/);
+});
+
 check('CI builds and validates unsigned release artifacts deterministically', () => {
     const workflow = read('.github/workflows/ci.yml');
     assert.match(workflow, /runs-on: windows-latest/);

@@ -1477,7 +1477,9 @@ document.getElementById('autoSearchToggle').setAttribute('aria-checked', String(
 document.getElementById('saveHistoryToggle').setAttribute('aria-checked', String(settings.saveHistory));
 syncPrivacyUI();
 updateEngineSelectionCount();
-if (matchMedia('(max-width: 768px)').matches) document.getElementById('enginePicker').removeAttribute('open');
+if (matchMedia('(max-width: 768px), (min-width: 769px) and (max-height: 800px)').matches) {
+    document.getElementById('enginePicker').removeAttribute('open');
+}
 saveSettings();
 saveHistoryData();
 renderHistory();

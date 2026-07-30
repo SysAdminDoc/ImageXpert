@@ -421,6 +421,57 @@ async function main() {
             }
         });
 
+        for (const [width, height] of [[1366, 768], [1280, 720]]) {
+            await report(`${width}x${height} laptop layout keeps investigation actions in the first viewport`, async () => {
+                await setViewport(client, width, height);
+                const emptyLayout = await client.evaluate(`(() => {
+                    const visibleInViewport = element => {
+                        const rect = element.getBoundingClientRect();
+                        return rect.width > 0 && rect.height > 0 && rect.top >= 0 && rect.bottom <= innerHeight;
+                    };
+                    const picker = document.getElementById('enginePicker');
+                    const targets = {
+                        drop: document.getElementById('dropZone'),
+                        urlInput: document.getElementById('urlInput'),
+                        urlAction: document.getElementById('urlSearchBtn'),
+                        privacy: document.getElementById('privacyBanner'),
+                        engineSummary: picker.querySelector('summary')
+                    };
+                    return {
+                        visible: Object.fromEntries(Object.entries(targets).map(([key, element]) => [key, visibleInViewport(element)])),
+                        engineCollapsed: !picker.open,
+                        selectedSummary: document.getElementById('engineSelectionCount').textContent,
+                        overflow: document.documentElement.scrollWidth - innerWidth
+                    };
+                })()`);
+                assert.deepEqual(emptyLayout.visible, {
+                    drop: true,
+                    urlInput: true,
+                    urlAction: true,
+                    privacy: true,
+                    engineSummary: true
+                });
+                assert.equal(emptyLayout.engineCollapsed, true);
+                assert.match(emptyLayout.selectedSummary, /2 selected/);
+                assert.ok(emptyLayout.overflow <= 0);
+
+                await client.evaluate(`window.__ImageXpertTest.loadFromUrl(location.origin + '/icon.png')`);
+                const loadedLayout = await client.evaluate(`(() => {
+                    const drop = document.getElementById('dropZone').getBoundingClientRect();
+                    const rotate = document.getElementById('rotateBtn').getBoundingClientRect();
+                    const searchAgain = document.getElementById('searchAgainBtn').getBoundingClientRect();
+                    return {
+                        rotateReachable: rotate.width > 0 && rotate.top >= drop.top && rotate.bottom <= drop.bottom,
+                        searchReachable: searchAgain.width > 0 && searchAgain.top >= drop.top && searchAgain.bottom <= drop.bottom,
+                        utilityScrollable: document.querySelector('.utility-panel').scrollHeight >= document.querySelector('.utility-panel').clientHeight
+                    };
+                })()`);
+                assert.equal(loadedLayout.rotateReachable, true);
+                assert.equal(loadedLayout.searchReachable, true);
+                assert.equal(loadedLayout.utilityScrollable, true);
+            });
+        }
+
         await report('CSP-constrained module shell reloads from the offline cache', async () => {
             await client.evaluate('navigator.serviceWorker.ready.then(() => true)');
             await client.send('Page.navigate', { url: `http://127.0.0.1:${httpPort}/` });

@@ -14,6 +14,7 @@ All notable changes to ImageXpert will be documented in this file.
 - Reworked PWA updates around complete versioned caches, explicit save-and-reload activation, offline/update status, failed-install rollback, stale-cache cleanup, and remote-workspace recovery.
 - Moved built-in engines into a validated registry with dated capability, dispatch, privacy, and lifecycle metadata plus deterministic and optional non-fatal live verification commands.
 - Added continuous WCAG 2.2 interaction checks, assertive error announcements, inert dialogs, skip navigation, reduced motion, keyboard region selection, and high-zoom reflow coverage.
+- Added a compact laptop-height workspace that keeps drop, URL, privacy, engine-summary, and dispatch controls in the initial 1366×768 and 1280×720 viewport while retaining scrollable loaded-image tools.
 
 ## [v1.2.0] - 2026-07-25
 
