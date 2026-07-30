@@ -79,6 +79,11 @@ Build the unsigned site plus Chrome, Edge, and Firefox companion archives with
 The same package and test sequence runs in GitHub Actions on pushes and pull
 requests, and publishes the validated unsigned archives as workflow artifacts.
 
+`version.json` is the release metadata contract for the shared version, PWA
+theme colors, and required PWA/extension icon sizes. Release checks compare it
+against manifests, the app shell, CSS, userscript, service-worker cache, README
+badge, image dimensions, and archive allowlists.
+
 Run `npm run check:engines` for deterministic registry and URL-construction
 validation. Add `-- --network` for a timeout-bounded public endpoint report;
 reachability failures are reported but do not fail deterministic validation.

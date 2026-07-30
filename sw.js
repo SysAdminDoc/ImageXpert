@@ -18,7 +18,9 @@ const OFFLINE_ASSETS = Object.freeze([
   './modules/service-worker-controller.js',
   './modules/ui-controller.js',
   './manifest.webmanifest',
-  './icon.png'
+  './icons/icon-32.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ]);
 const CACHE_PATHS = new Set(OFFLINE_ASSETS.map((asset) => new URL(asset, self.location.href).pathname));
 

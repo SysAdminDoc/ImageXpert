@@ -51,7 +51,7 @@ const server = http.createServer((request, response) => {
             `'imagexpert-test-${serviceWorkerCacheVariant}'`
         );
         if (serviceWorkerCacheVariant === 'broken-install') {
-            worker = worker.replace("'./icon.png'", "'./icon.png', './missing-install-asset.js'");
+            worker = worker.replace("'./icons/icon-512.png'", "'./icons/icon-512.png', './missing-install-asset.js'");
         }
         response.end(worker);
         return;

@@ -23,6 +23,7 @@ All notable changes to ImageXpert will be documented in this file.
 - Added local history search plus date, source, engine, dispatch-outcome, and expiry filters with a versioned redacted metadata export.
 - Added separate unsigned Chrome, Edge, and Firefox MV3 companion packages from one localized, least-privilege background implementation with handoff smoke tests.
 - Added bounded local pHash/dHash duplicate grouping with configurable Hamming thresholds and explicit advisory-only review while retaining automatic exact deduplication.
+- Consolidated version/theme/icon metadata, aligned the PWA shell with the current palette, and replaced duplicate 1024px payloads with validated 16/32/48/128 and 32/192/512 assets.
 
 ## [v1.2.0] - 2026-07-25
 

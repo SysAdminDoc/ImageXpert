@@ -6,7 +6,8 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
-const version = JSON.parse(read('version.json')).version;
+const releaseMetadata = JSON.parse(read('version.json'));
+const version = releaseMetadata.version;
 const expected = `v${version}`;
 
 function check(name, fn) {
@@ -33,6 +34,12 @@ function zipEntries(file) {
     return entries;
 }
 
+function pngDimensions(file) {
+    const buffer = fs.readFileSync(path.join(root, file));
+    assert.equal(buffer.subarray(1, 4).toString('ascii'), 'PNG', `${file} is not a PNG`);
+    return [buffer.readUInt32BE(16), buffer.readUInt32BE(20)];
+}
+
 check('version strings are synchronized', () => {
     assert.equal(JSON.parse(read('package.json')).version, version);
     assert.equal(JSON.parse(read('extension/manifest.json')).version, version);
@@ -49,11 +56,30 @@ check('version strings are synchronized', () => {
 
 check('branding and metadata reference shipped assets only', () => {
     const html = read('index.html');
+    const pwa = JSON.parse(read('manifest.webmanifest'));
     assert.match(html, /<title>ImageXpert/);
     assert.doesNotMatch(html, /banner\.png|ReverseSearch/);
-    for (const asset of ['app-core.js', 'app.css', 'app.js', 'i18n.js', 'manifest.webmanifest', 'icon.png']) {
+    assert.equal(pwa.background_color, releaseMetadata.theme.background);
+    assert.equal(pwa.theme_color, releaseMetadata.theme.color);
+    assert.match(html, new RegExp(`<meta name="theme-color" content="${releaseMetadata.theme.color}">`));
+    assert.match(read('app.css'), new RegExp(`--bg: ${releaseMetadata.theme.background}`));
+    for (const asset of ['app-core.js', 'app.css', 'app.js', 'i18n.js', 'manifest.webmanifest']) {
         assert.equal(fs.existsSync(path.join(root, asset)), true, `${asset} is missing`);
     }
+    for (const size of releaseMetadata.icons.pwa) {
+        const file = `icons/icon-${size}.png`;
+        assert.deepEqual(pngDimensions(file), [size, size], `${file} dimensions drifted`);
+    }
+    for (const size of releaseMetadata.icons.extension) {
+        const file = `extension/icons/icon-${size}.png`;
+        assert.deepEqual(pngDimensions(file), [size, size], `${file} dimensions drifted`);
+    }
+    assert.deepEqual(pwa.icons.map(({ src, sizes }) => [src, sizes]), [
+        ['icons/icon-192.png', '192x192'],
+        ['icons/icon-512.png', '512x512']
+    ]);
+    assert.equal(fs.existsSync(path.join(root, 'icon.png')), false, 'legacy root icon should not be shipped');
+    assert.equal(fs.existsSync(path.join(root, 'extension/icon.png')), false, 'legacy extension icon should not be shipped');
 });
 
 check('PWA and extension security contracts are valid', () => {
@@ -83,6 +109,12 @@ check('PWA and extension security contracts are valid', () => {
     assert.equal(JSON.parse(read('extension/_locales/en/messages.json')).extensionName.message, 'ImageXpert Companion');
     assert.equal(JSON.parse(read('extension/_locales/es/messages.json')).extensionName.message, 'Complemento ImageXpert');
     assert.deepEqual(extension.permissions, ['contextMenus']);
+    assert.deepEqual(extension.icons, {
+        16: 'icons/icon-16.png',
+        32: 'icons/icon-32.png',
+        48: 'icons/icon-48.png',
+        128: 'icons/icon-128.png'
+    });
     assert.match(extension.content_security_policy.extension_pages, /script-src 'self'/);
     const sw = read('sw.js');
     assert.match(sw, /url\.origin !== self\.location\.origin/);
@@ -203,7 +235,10 @@ check('release archives match the current version and allowlists', () => {
         '_locales/en/messages.json',
         '_locales/es/messages.json',
         'background.js',
-        'icon.png',
+        'icons/icon-16.png',
+        'icons/icon-32.png',
+        'icons/icon-48.png',
+        'icons/icon-128.png',
         'manifest.json'
     ].sort());
     assert.deepEqual(zipEntries(edgeZip).sort(), zipEntries(chromeZip).sort());
@@ -222,9 +257,15 @@ check('release archives match the current version and allowlists', () => {
         'extension/background.js',
         'extension/_locales/en/messages.json',
         'extension/_locales/es/messages.json',
-        'extension/icon.png',
+        'extension/icons/icon-16.png',
+        'extension/icons/icon-32.png',
+        'extension/icons/icon-48.png',
+        'extension/icons/icon-128.png',
         'extension/manifest.json',
         'extension/manifest.firefox.json',
+        'icons/icon-32.png',
+        'icons/icon-192.png',
+        'icons/icon-512.png',
         'i18n.js',
         'index.html',
         'manifest.webmanifest',

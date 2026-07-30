@@ -21,16 +21,19 @@ foreach ($file in $siteFiles) {
     Copy-Item -LiteralPath (Join-Path $repoRoot $file) -Destination (Join-Path $stage "site\$file")
 }
 Copy-Item -LiteralPath (Join-Path $repoRoot 'modules') -Destination (Join-Path $stage 'site\modules') -Recurse
-foreach ($file in @('background.js', 'icon.png', 'manifest.json')) {
+Copy-Item -LiteralPath (Join-Path $repoRoot 'icons') -Destination (Join-Path $stage 'site\icons') -Recurse
+foreach ($file in @('background.js', 'manifest.json')) {
     Copy-Item -LiteralPath (Join-Path $repoRoot "extension\$file") -Destination (Join-Path $stage "site\extension\$file")
     Copy-Item -LiteralPath (Join-Path $repoRoot "extension\$file") -Destination (Join-Path $stage "chrome\$file")
     Copy-Item -LiteralPath (Join-Path $repoRoot "extension\$file") -Destination (Join-Path $stage "edge\$file")
 }
 Copy-Item -LiteralPath (Join-Path $repoRoot 'extension\manifest.firefox.json') -Destination (Join-Path $stage 'site\extension\manifest.firefox.json')
-foreach ($file in @('background.js', 'icon.png')) {
-    Copy-Item -LiteralPath (Join-Path $repoRoot "extension\$file") -Destination (Join-Path $stage "firefox\$file")
-}
+Copy-Item -LiteralPath (Join-Path $repoRoot 'extension\background.js') -Destination (Join-Path $stage 'firefox\background.js')
 Copy-Item -LiteralPath (Join-Path $repoRoot 'extension\manifest.firefox.json') -Destination (Join-Path $stage 'firefox\manifest.json')
+Copy-Item -LiteralPath (Join-Path $repoRoot 'extension\icons') -Destination (Join-Path $stage 'site\extension\icons') -Recurse
+Copy-Item -LiteralPath (Join-Path $repoRoot 'extension\icons') -Destination (Join-Path $stage 'chrome\icons') -Recurse
+Copy-Item -LiteralPath (Join-Path $repoRoot 'extension\icons') -Destination (Join-Path $stage 'edge\icons') -Recurse
+Copy-Item -LiteralPath (Join-Path $repoRoot 'extension\icons') -Destination (Join-Path $stage 'firefox\icons') -Recurse
 Copy-Item -LiteralPath (Join-Path $repoRoot 'extension\_locales') -Destination (Join-Path $stage 'site\extension\_locales') -Recurse
 Copy-Item -LiteralPath (Join-Path $repoRoot 'extension\_locales') -Destination (Join-Path $stage 'chrome\_locales') -Recurse
 Copy-Item -LiteralPath (Join-Path $repoRoot 'extension\_locales') -Destination (Join-Path $stage 'edge\_locales') -Recurse
