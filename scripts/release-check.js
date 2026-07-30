@@ -213,6 +213,7 @@ check('CI builds and validates unsigned release artifacts deterministically', ()
     assert.match(workflow, /uses: actions\/upload-artifact@v4/);
     const browserSmoke = read('tests/browser-smoke.js');
     assert.doesNotMatch(browserSmoke, /litterbox\.catbox\.moe\/resources\/internals/);
+    assert.match(read('scripts/package.ps1'), /New-Item -ItemType Directory -Path \$dist -Force/);
 });
 
 check('engine and external URL schemes are HTTPS', () => {

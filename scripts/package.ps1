@@ -4,6 +4,7 @@ $version = (Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'version.json') |
 $dist = Join-Path $repoRoot 'dist'
 $stage = Join-Path ([IO.Path]::GetTempPath()) "imagexpert-package-$version"
 
+New-Item -ItemType Directory -Path $dist -Force | Out-Null
 if (Test-Path -LiteralPath $stage) {
     Remove-Item -LiteralPath $stage -Recurse -Force
 }
