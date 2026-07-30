@@ -488,6 +488,45 @@ async function main() {
             });
         }
 
+        await report('portable settings import is data-only and durably reversible', async () => {
+            const result = await client.evaluate(`(() => {
+                const hooks = window.__ImageXpertTest;
+                const bundle = hooks.getSettingsBundle();
+                let rejected = '';
+                try {
+                    hooks.importSettingsBundle({ ...bundle, headers: { Authorization: 'secret' } });
+                } catch (error) {
+                    rejected = error.message;
+                }
+                const imported = hooks.importSettingsBundle({
+                    ...bundle,
+                    settings: { autoSearch: true, saveHistory: false, noUpload: false, locale: 'es' },
+                    activeEngines: ['google'],
+                    customEngines: { schemaVersion: 1, engines: [] }
+                });
+                const stored = JSON.parse(localStorage.getItem('rs_settings'));
+                const backupPresent = Boolean(localStorage.getItem('rs_portable_settings_backup'));
+                const locale = localStorage.getItem('rs_locale');
+                const rolledBack = hooks.rollbackSettingsBundle();
+                return {
+                    rejected,
+                    imported,
+                    stored,
+                    backupPresent,
+                    locale,
+                    rolledBack,
+                    backupAfter: localStorage.getItem('rs_portable_settings_backup')
+                };
+            })()`);
+            assert.match(result.rejected, /forbidden field/i);
+            assert.equal(result.imported.settings.noUpload, true);
+            assert.equal(result.stored.noUpload, true);
+            assert.equal(result.backupPresent, true);
+            assert.equal(result.locale, 'es');
+            assert.equal(result.rolledBack, true);
+            assert.equal(result.backupAfter, null);
+        });
+
         await report('diagnostics expose runtime health while redacting investigation data', async () => {
             const result = await client.evaluate(`(async () => {
                 const hooks = window.__ImageXpertTest;

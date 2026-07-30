@@ -220,6 +220,11 @@
                     <button class="history-btn" type="button" id="exportEnginesBtn" data-i18n="custom.export">Export manifest</button>
                     <button class="history-btn" type="button" id="undoEnginesBtn" data-i18n="custom.undo" hidden>Undo import</button>
                 </div>
+                <div class="history-actions">
+                    <button class="history-btn" type="button" id="importSettingsBtn" data-i18n="portable.import">Import settings</button>
+                    <button class="history-btn" type="button" id="exportSettingsBtn" data-i18n="portable.export">Export settings</button>
+                    <button class="history-btn" type="button" id="rollbackSettingsBtn" data-i18n="portable.rollback" hidden>Rollback settings import</button>
+                </div>
             </div>
         </div>
         <div class="panel-footer">
@@ -259,6 +264,7 @@
     <input type="file" id="cameraInput" accept="image/*" capture="environment" aria-label="Capture an image" data-i18n-aria-label="file.capture">
     <input type="file" id="engineManifestInput" accept="application/json,.json" aria-label="Import custom engine manifest" data-i18n-aria-label="file.engineManifest">
     <input type="file" id="caseFileInput" accept="application/json,.json" aria-label="Import ImageXpert case" data-i18n-aria-label="file.case">
+    <input type="file" id="settingsFileInput" accept="application/json,.json" aria-label="Import ImageXpert settings bundle" data-i18n-aria-label="file.settings">
 
     <script src="./app-core.js"></script>
     <script src="./i18n.js"></script>

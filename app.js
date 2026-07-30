@@ -11,6 +11,13 @@ import { createEngineRegistry, engineControlMetadata, engineGuidanceGroups } fro
 import { registerServiceWorker } from './modules/service-worker-controller.js';
 import { formatBytes } from './modules/ui-controller.js';
 import { inspectProvenance } from './modules/provenance-controller.mjs';
+import {
+    createSettingsBundle,
+    MAX_SETTINGS_BUNDLE_BYTES,
+    SETTINGS_BACKUP_KEY,
+    settingsBundleChanges,
+    validateSettingsBundle
+} from './modules/settings-portability-controller.js';
 
 const Core = window.ImageXpertCore;
 const I18n = window.ImageXpertI18n;
@@ -1355,6 +1362,74 @@ function appendCustomEngineSummary() {
         : tr('custom.empty');
 }
 
+function currentSettingsBundle() {
+    return createSettingsBundle({
+        appVersion: APP_VERSION,
+        settings: { ...settings, locale: activeLocale },
+        activeEngines,
+        customEngines: customEngineManifest
+    });
+}
+
+function writeSettingsBundle(bundle) {
+    localStorage.setItem('rs_schema_version', String(Core.STORAGE_VERSION));
+    localStorage.setItem('rs_settings', JSON.stringify(settingsForStorage(bundle.settings)));
+    localStorage.setItem('rs_engines', JSON.stringify(bundle.activeEngines));
+    localStorage.setItem('rs_custom_engines', JSON.stringify(bundle.customEngines));
+    localStorage.setItem(I18n.STORAGE_KEY, bundle.settings.locale);
+}
+
+function validatePortableSettings(input) {
+    return validateSettingsBundle(input, {
+        validateEngineManifest: Core.validateEngineManifest,
+        builtinEngineIds: BUILTIN_ENGINE_IDS
+    });
+}
+
+function portableSettingsPreview(bundle) {
+    const changes = settingsBundleChanges(customEngineManifest, bundle.customEngines);
+    const none = activeLocale === 'es' ? 'ninguno' : 'none';
+    return [
+        activeLocale === 'es' ? 'Revisar ajustes antes de importarlos' : 'Review settings before import',
+        '',
+        `${activeLocale === 'es' ? 'Motores activos' : 'Active engines'}: ${I18n.formatList(bundle.activeEngines.map((id) => SEARCH_ENGINES[id]?.name || id), activeLocale) || none}`,
+        `${activeLocale === 'es' ? 'Añadir' : 'Add'}: ${changes.added.join(', ') || none}`,
+        `${activeLocale === 'es' ? 'Actualizar' : 'Update'}: ${changes.updated.join(', ') || none}`,
+        `${activeLocale === 'es' ? 'Eliminar' : 'Remove'}: ${changes.removed.join(', ') || none}`,
+        activeLocale === 'es'
+            ? 'La carga externa permanecerá deshabilitada. No se importarán código, cabeceras, cookies ni secretos.'
+            : 'External upload will remain disabled. No code, headers, cookies, or secrets will be imported.',
+        '',
+        activeLocale === 'es' ? '¿Aplicar estos ajustes?' : 'Apply these settings?'
+    ].join('\n');
+}
+
+function applyPortableSettings(bundle) {
+    const backup = currentSettingsBundle();
+    localStorage.setItem(SETTINGS_BACKUP_KEY, JSON.stringify(backup));
+    try {
+        writeSettingsBundle(bundle);
+    } catch (error) {
+        writeSettingsBundle(backup);
+        throw error;
+    }
+}
+
+function importPortableSettings(input, confirmImport = confirm) {
+    const bundle = validatePortableSettings(input);
+    if (!confirmImport(portableSettingsPreview(bundle))) return null;
+    applyPortableSettings(bundle);
+    return bundle;
+}
+
+function rollbackPortableSettings() {
+    const backup = localStorage.getItem(SETTINGS_BACKUP_KEY);
+    if (!backup) return false;
+    writeSettingsBundle(validatePortableSettings(backup));
+    localStorage.removeItem(SETTINGS_BACKUP_KEY);
+    return true;
+}
+
 function appendCustomEngineControls() {
     const bar = document.querySelector('.engines-bar');
     customEngineManifest.engines
@@ -1380,6 +1455,7 @@ function appendCustomEngineControls() {
     appendCustomEngineSummary();
     const backup = sessionStorage.getItem('rs_custom_engine_backup');
     document.getElementById('undoEnginesBtn').hidden = !backup;
+    document.getElementById('rollbackSettingsBtn').hidden = !localStorage.getItem(SETTINGS_BACKUP_KEY);
 }
 
 function renderEngineGuidance() {
@@ -1701,6 +1777,38 @@ document.getElementById('exportEnginesBtn').addEventListener('click', () => {
     link.click();
     URL.revokeObjectURL(url);
 });
+document.getElementById('exportSettingsBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(currentSettingsBundle(), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `imagexpert_settings_${Date.now()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+});
+document.getElementById('importSettingsBtn').addEventListener('click', () => document.getElementById('settingsFileInput').click());
+document.getElementById('settingsFileInput').addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_SETTINGS_BUNDLE_BYTES) {
+        showToast('Settings bundle exceeds the 128 KB limit.', '⚠️', true);
+        return;
+    }
+    try {
+        if (importPortableSettings(await file.text())) location.reload();
+    } catch (error) {
+        recordDiagnostic({ phase: 'settings-import', error });
+        showToast(`Settings import rejected: ${error.message}`, '⚠️', true);
+    }
+});
+document.getElementById('rollbackSettingsBtn').addEventListener('click', () => {
+    try {
+        if (rollbackPortableSettings()) location.reload();
+    } catch (error) {
+        showToast(`Settings rollback failed: ${error.message}`, '⚠️', true);
+    }
+});
 document.getElementById('undoEnginesBtn').addEventListener('click', () => {
     const backup = sessionStorage.getItem('rs_custom_engine_backup');
     if (!backup) return;
@@ -1851,6 +1959,9 @@ if (['127.0.0.1', 'localhost'].includes(location.hostname)) {
             performBatchSearch,
             exportCaseFile,
             importCasePayload: (payload) => importCasePayload(payload, () => true),
+            getSettingsBundle: () => structuredClone(currentSettingsBundle()),
+            importSettingsBundle: (payload) => importPortableSettings(payload, () => true),
+            rollbackSettingsBundle: rollbackPortableSettings,
             getSupportReport: supportReport,
             getCasePayload: () => structuredClone(buildCasePayload()),
             openDispatch,

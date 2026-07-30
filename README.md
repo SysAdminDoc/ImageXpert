@@ -32,6 +32,8 @@ The site remains dependency-free and no-build: `index.html` loads same-origin CS
   companion and userscript metadata.
 - Data-only custom engine manifest import/export with HTTPS validation, preview,
   and one-step rollback.
+- Portable settings/custom-engine bundles with conflict review, strict rejection
+  of privilege-bearing fields, a durable pre-import backup, and one-click rollback.
 - Local file facts and a no-upload C2PA adapter with explicit unsupported,
   no-manifest, invalid-signature, and valid-signature states.
 
