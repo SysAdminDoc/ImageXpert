@@ -488,6 +488,66 @@ async function main() {
             });
         }
 
+        await report('case import previews, restores safe state, and rolls back invalid input', async () => {
+            const result = await client.evaluate(`(() => {
+                const hooks = window.__ImageXpertTest;
+                const before = hooks.getState();
+                let invalidError = '';
+                try {
+                    hooks.importCasePayload({
+                        app: 'ImageXpert',
+                        schemaVersion: 3,
+                        createdAt: '2026-07-29T12:00:00.000Z',
+                        source: 'javascript:alert(1)',
+                        sourceType: 'remote',
+                        selectedEngines: []
+                    });
+                } catch (error) {
+                    invalidError = error.message;
+                }
+                const afterInvalid = hooks.getState();
+                const imported = hooks.importCasePayload({
+                    app: 'ImageXpert',
+                    schemaVersion: 2,
+                    version: '1.1.0',
+                    createdAt: '2026-07-29T12:00:00.000Z',
+                    source: location.origin + '/icon.png',
+                    sourceType: 'remote',
+                    selectedEngines: [{ id: 'google', name: 'Google Lens' }],
+                    hashes: { sha256: '${'a'.repeat(64)}', phash: '0123456789abcdef', dhash: 'fedcba9876543210' },
+                    originalHashes: null,
+                    localMetadata: { name: 'icon.png', type: 'image/png', size: 4096, width: 512, height: 512, lastModified: 1700000000000 },
+                    provenance: { status: 'not-found', signatureValidity: 'unknown', trust: 'unknown', detail: 'No manifest' },
+                    preprocessing: [{ mode: 'rotate', degrees: 90, timestamp: '2026-07-29T12:01:00.000Z' }],
+                    batchCount: 1,
+                    dispatches: [{
+                        id: 'old-dispatch',
+                        engineId: 'google',
+                        sourceId: 'single',
+                        status: 'opened',
+                        timestamp: '2026-07-29T12:02:00.000Z',
+                        targetHost: 'lens.google.com'
+                    }]
+                });
+                const afterImport = hooks.getState();
+                return {
+                    invalidError,
+                    invalidUnchanged: JSON.stringify(before) === JSON.stringify(afterInvalid),
+                    imported,
+                    afterImport,
+                    previewVisible: document.getElementById('dropZone').classList.contains('has-image')
+                };
+            })()`);
+            assert.match(result.invalidError, /HTTP or HTTPS/);
+            assert.equal(result.invalidUnchanged, true);
+            assert.equal(result.imported.migrated, true);
+            assert.match(result.afterImport.source, /icon\.png$/);
+            assert.equal(result.afterImport.sourceType, 'remote');
+            assert.equal(result.afterImport.hashes.sha256, 'a'.repeat(64));
+            assert.equal(result.afterImport.dispatches.length, 1);
+            assert.equal(result.previewVisible, true);
+        });
+
         await report('Spanish and expansion locales persist without layout overflow', async () => {
             await setViewport(client, 1280, 720);
             const pseudo = await client.evaluate(`(() => {

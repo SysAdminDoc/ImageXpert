@@ -17,6 +17,7 @@ All notable changes to ImageXpert will be documented in this file.
 - Added a compact laptop-height workspace that keeps drop, URL, privacy, engine-summary, and dispatch controls in the initial 1366×768 and 1280×720 viewport while retaining scrollable loaded-image tools.
 - Replaced stale automatic-search and popup-permission help with queue/privacy/CORS guidance and dated engine groups for exact/source, general/product, illustration/anime, and consent-gated biometric intent.
 - Added persistent browser-language selection, complete Spanish and expansion-test catalogs, locale-aware dates/numbers/lists, and localized companion/userscript metadata.
+- Added transactional, schema-versioned case import with strict size/URL/hash/timestamp validation, migration preview, expired-host protection, and resumable remote investigations.
 
 ## [v1.2.0] - 2026-07-25
 

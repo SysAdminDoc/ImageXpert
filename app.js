@@ -1,6 +1,11 @@
 import { dataUrlToFile, readFileAsDataUrl } from './modules/media-controller.js';
 import { createDispatchId, escapeAttribute, escapeHtml } from './modules/dispatch-controller.js';
-import { createCasePayload, settingsForStorage } from './modules/storage-case-controller.js';
+import {
+    createCasePayload,
+    MAX_CASE_FILE_BYTES,
+    settingsForStorage,
+    validateCaseImport
+} from './modules/storage-case-controller.js';
 import { createUploadConsentMessage, hostedWindow, recipientNames } from './modules/upload-policy-controller.js';
 import { createEngineRegistry, engineControlMetadata, engineGuidanceGroups } from './modules/engine-controller.mjs';
 import { registerServiceWorker } from './modules/service-worker-controller.js';
@@ -57,6 +62,7 @@ let currentImageData = null;
 let hostedUrl = null;
 let hostedAt = null;
 let hostedExpiresAt = null;
+let importedSourceType = null;
 let currentBatch = [];
 let lastHashes = null;
 let originalHashes = null;
@@ -460,6 +466,7 @@ async function performSearch(imageUrl, isLocal = false, options = {}) {
 }
 
 function loadImage(src, isLocal = false, skipAuto = false) {
+    importedSourceType = null;
     currentImageUrl = isLocal ? '' : src;
     currentImageData = isLocal ? src : null;
     hostedUrl = null;
@@ -943,12 +950,12 @@ async function applyRegionSelection(start, end) {
 }
 
 function buildCasePayload() {
-    const source = hostedUrl || currentImageUrl || (currentImageData ? 'local-data-url' : '');
+    const source = hostedUrl || currentImageUrl || (currentImageData || importedSourceType === 'local' ? 'local-data-url' : '');
     if (!source) return null;
     return createCasePayload({
         appVersion: APP_VERSION,
         source,
-        sourceType: currentImageData ? (hostedUrl ? 'hosted-local' : 'local') : 'remote',
+        sourceType: importedSourceType || (currentImageData ? (hostedUrl ? 'hosted-local' : 'local') : 'remote'),
         hostedAt: hostedUrl && hostedAt ? new Date(hostedAt).toISOString() : null,
         expiresAt: hostedUrl && hostedExpiresAt ? new Date(hostedExpiresAt).toISOString() : null,
         selectedEngines: activeEngines.map((eng) => ({ id: eng, name: SEARCH_ENGINES[eng]?.name || eng })),
@@ -960,6 +967,117 @@ function buildCasePayload() {
         batchCount: currentBatch.length,
         dispatches: dispatches.map(({ target, ...dispatch }) => ({ ...dispatch, targetHost: new URL(target).host }))
     });
+}
+
+function caseImportPreview(payload) {
+    const sourceLabel = payload.sourceType === 'local'
+        ? (activeLocale === 'es' ? 'Archivo local (debe volver a seleccionarse)' : 'Local file (must be reselected)')
+        : new URL(payload.source).host;
+    const lines = [
+        activeLocale === 'es' ? 'Revisar caso antes de importarlo' : 'Review case before import',
+        '',
+        `${activeLocale === 'es' ? 'Creado' : 'Created'}: ${I18n.formatDate(payload.createdAt, activeLocale, { dateStyle: 'medium', timeStyle: 'short' })}`,
+        `${activeLocale === 'es' ? 'Origen' : 'Source'}: ${sourceLabel}`,
+        `${activeLocale === 'es' ? 'Motores' : 'Engines'}: ${I18n.formatList(payload.selectedEngines.map((id) => SEARCH_ENGINES[id]?.name || id), activeLocale) || '—'}`,
+        `${activeLocale === 'es' ? 'Registros de envío' : 'Dispatch records'}: ${I18n.formatNumber(payload.dispatches.length, activeLocale)}`
+    ];
+    if (payload.migrated) lines.push(activeLocale === 'es'
+        ? `El esquema ${payload.importedSchema} se migrará al ${payload.schemaVersion}.`
+        : `Schema ${payload.importedSchema} will migrate to ${payload.schemaVersion}.`);
+    if (payload.expired) lines.push(activeLocale === 'es'
+        ? 'El enlace alojado ha caducado y no se enviará.'
+        : 'The hosted link has expired and will not be dispatched.');
+    if (payload.sourceType === 'local') lines.push(activeLocale === 'es'
+        ? 'El archivo no está incrustado; los hashes y metadatos se restaurarán como evidencia.'
+        : 'The file is not embedded; hashes and metadata will be restored as evidence.');
+    lines.push('', activeLocale === 'es' ? '¿Importar este caso?' : 'Import this case?');
+    return lines.join('\n');
+}
+
+function applyImportedCase(payload) {
+    const snapshot = {
+        currentImageUrl,
+        currentImageData,
+        hostedUrl,
+        hostedAt,
+        hostedExpiresAt,
+        importedSourceType,
+        activeEngines: [...activeEngines],
+        lastHashes,
+        originalHashes,
+        currentFileMetadata,
+        currentProvenance,
+        lastPreprocessing: [...lastPreprocessing],
+        dispatches: [...dispatches]
+    };
+    try {
+        clearImage();
+        importedSourceType = payload.sourceType;
+        activeEngines = payload.selectedEngines.length ? [...payload.selectedEngines] : [...DEFAULT_ENGINES];
+        lastHashes = payload.hashes;
+        originalHashes = payload.originalHashes;
+        currentFileMetadata = payload.localMetadata;
+        currentProvenance = payload.provenance;
+        lastPreprocessing = payload.preprocessing;
+        hostedAt = payload.hostedAt ? Date.parse(payload.hostedAt) : null;
+        hostedExpiresAt = payload.expiresAt ? Date.parse(payload.expiresAt) : null;
+
+        if (payload.canReopen) {
+            currentImageUrl = payload.source;
+            hostedUrl = payload.sourceType === 'hosted-local' ? payload.source : null;
+            previewImage.src = payload.source;
+            dropZone.classList.add('has-image');
+            imageInfo.textContent = activeLocale === 'es' ? 'Caso importado' : 'Imported case';
+            queueSelectedEngines(payload.source, false, 'imported-case');
+        } else {
+            hostedUrl = payload.sourceType === 'hosted-local' ? payload.source : null;
+            dispatches = [];
+        }
+        document.querySelectorAll('.engine-toggle').forEach((button) => {
+            const active = activeEngines.includes(button.dataset.engine);
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', String(active));
+        });
+        updateEngineSelectionCount();
+        if (lastHashes) renderHashes(lastHashes);
+        else document.getElementById('hashGrid').replaceChildren();
+        renderFileMetadata();
+        renderDispatchQueue();
+        saveSettings();
+        return payload;
+    } catch (error) {
+        ({
+            currentImageUrl,
+            currentImageData,
+            hostedUrl,
+            hostedAt,
+            hostedExpiresAt,
+            importedSourceType,
+            activeEngines,
+            lastHashes,
+            originalHashes,
+            currentFileMetadata,
+            currentProvenance,
+            lastPreprocessing,
+            dispatches
+        } = snapshot);
+        if (lastHashes) renderHashes(lastHashes);
+        else document.getElementById('hashGrid').replaceChildren();
+        renderFileMetadata();
+        renderDispatchQueue();
+        throw error;
+    }
+}
+
+function importCasePayload(input, confirmImport = confirm) {
+    const payload = validateCaseImport(input, { validEngineIds: Object.keys(SEARCH_ENGINES) });
+    if (!confirmImport(caseImportPreview(payload))) return null;
+    return applyImportedCase(payload);
+}
+
+async function importCaseFile(file) {
+    if (!file || file.size > MAX_CASE_FILE_BYTES) throw new Error('Case file exceeds the 512 KB limit');
+    return importCasePayload(await file.text());
 }
 
 function exportCaseFile() {
@@ -981,6 +1099,7 @@ function clearImage() {
     hostedUrl = null;
     hostedAt = null;
     hostedExpiresAt = null;
+    importedSourceType = null;
     currentBatch = [];
     lastHashes = null;
     originalHashes = null;
@@ -1327,6 +1446,24 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
 });
 
 document.getElementById('exportCaseBtn').addEventListener('click', exportCaseFile);
+document.getElementById('importCaseBtn').addEventListener('click', () => document.getElementById('caseFileInput').click());
+document.getElementById('caseFileInput').addEventListener('change', async (event) => {
+    try {
+        const imported = await importCaseFile(event.target.files[0]);
+        if (imported) {
+            showToast(imported.expired
+                ? 'Case imported. The expired hosted link was not dispatched.'
+                : imported.sourceType === 'local'
+                    ? 'Case evidence imported. Reselect the local file to resume.'
+                    : 'Case imported and ready to resume.');
+        }
+    } catch (error) {
+        recordDiagnostic({ phase: 'case-import', error });
+        showToast(`Case import rejected: ${error.message}`, '⚠️', true);
+    } finally {
+        event.target.value = '';
+    }
+});
 document.getElementById('rotateBtn').addEventListener('click', () => preprocessCurrentImage('rotate'));
 document.getElementById('cropBtn').addEventListener('click', () => preprocessCurrentImage('crop'));
 document.getElementById('trimBtn').addEventListener('click', () => preprocessCurrentImage('trim'));
@@ -1640,6 +1777,7 @@ if (['127.0.0.1', 'localhost'].includes(location.hostname)) {
             performSearch,
             performBatchSearch,
             exportCaseFile,
+            importCasePayload: (payload) => importCasePayload(payload, () => true),
             getCasePayload: () => structuredClone(buildCasePayload()),
             openDispatch,
             setSettings: (next) => {
@@ -1660,6 +1798,9 @@ if (['127.0.0.1', 'localhost'].includes(location.hostname)) {
                 diagnostics: structuredClone(diagnostics),
                 settings: structuredClone(settings),
                 externalUploadAuthorized,
+                source: hostedUrl || currentImageUrl || '',
+                sourceType: importedSourceType || (currentImageData ? 'local' : 'remote'),
+                hashes: structuredClone(lastHashes),
                 currentBatch: currentBatch.map(({ dataUrl, ...item }) => ({ ...item, hasData: Boolean(dataUrl) }))
             })
         })

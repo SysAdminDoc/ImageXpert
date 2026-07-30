@@ -22,12 +22,14 @@ The site remains dependency-free and no-build: `index.html` loads same-origin CS
   manual-engine recovery.
 - Tampermonkey userscript and Chrome MV3 companion extension for right-click image handoff.
 - Persistent English and Spanish UI selection in Settings, plus an expansion-test locale for layout QA.
+- Versioned JSON case export/import with a pre-import review, schema migration,
+  strict data-only validation, expired-host warnings, and resumable remote cases.
 - PWA manifest and offline shell for installable use.
 - Cache-first versioned PWA updates that keep the active shell intact until a
   visible **Save and reload** action; failed installs discard only the incomplete
   cache, and remote-URL investigations reopen after activation.
-- Versioned English UI dictionary with locale fallback; the independently
-  distributed userscript keeps its existing translation table.
+- Versioned English/Spanish UI dictionaries with browser fallback and localized
+  companion and userscript metadata.
 - Data-only custom engine manifest import/export with HTTPS validation, preview,
   and one-step rollback.
 - Local file facts and a no-upload C2PA adapter with explicit unsupported,

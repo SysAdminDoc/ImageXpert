@@ -1153,7 +1153,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
     .privacy-banner .action-btn { width: 100%; }
 }
 
-#fileInput, #cameraInput, #engineManifestInput { display: none; }
+#fileInput, #cameraInput, #engineManifestInput, #caseFileInput { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
