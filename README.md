@@ -10,6 +10,8 @@ The site remains dependency-free and no-build: `index.html` loads same-origin CS
 
 - 12 reverse-search targets: Google Lens, Yandex, Bing, TinEye, SauceNAO, ASCII2D, TraceMoe, PimEyes, and IQDB variants.
 - Bounded batch image mode and cancellable short-video keyframe extraction.
+- Automatic exact-file deduplication plus configurable local pHash/dHash warnings
+  for probable batch duplicates; similarity remains advisory and never removes a file.
 - Local SHA-256, pHash, and dHash display with copy-on-click hash cards.
 - Local preprocess tools for rotate, center crop, and bottom-strip trimming.
 - Drag-to-select region search with original-hash retention and optional Bing text context.

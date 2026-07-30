@@ -87,6 +87,16 @@
                     <div class="hash-grid" id="hashGrid"></div>
                     <div class="file-metadata" id="fileMetadata"></div>
                     <div class="batch-strip" id="batchStrip"></div>
+                    <section class="duplicate-review" id="duplicateReview" aria-labelledby="duplicateHeading" hidden>
+                        <div class="duplicate-review-header">
+                            <strong id="duplicateHeading" data-i18n="duplicates.heading">Probable duplicate review</strong>
+                            <label><span data-i18n="duplicates.phash">pHash distance</span> <input id="phashThreshold" type="number" min="0" max="16" value="8"></label>
+                            <label><span data-i18n="duplicates.dhash">dHash distance</span> <input id="dhashThreshold" type="number" min="0" max="16" value="6"></label>
+                            <button class="history-btn" id="recheckDuplicatesBtn" type="button" data-i18n="duplicates.recheck">Recheck</button>
+                        </div>
+                        <p data-i18n="duplicates.advisory">Advisory only: visual similarity is not identity or authenticity proof. Nothing is removed or deselected.</p>
+                        <div id="duplicateGroups"></div>
+                    </section>
                 </div>
             </div>
         </div>

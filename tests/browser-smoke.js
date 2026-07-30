@@ -488,6 +488,43 @@ async function main() {
             });
         }
 
+        await report('batch review removes exact duplicates and only warns on perceptual matches', async () => {
+            const result = await client.evaluate(`(async () => {
+                const hooks = window.__ImageXpertTest;
+                const makeFile = (color, name) => new Promise((resolve) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 8;
+                    canvas.height = 8;
+                    const context = canvas.getContext('2d');
+                    context.fillStyle = color;
+                    context.fillRect(0, 0, 8, 8);
+                    canvas.toBlob((blob) => resolve(new File([blob], name, { type: 'image/png', lastModified: 1700000000000 })), 'image/png');
+                });
+                const red = await makeFile('#ff0000', 'red.png');
+                const redCopy = new File([await red.arrayBuffer()], 'red-copy.png', { type: 'image/png', lastModified: 1700000000001 });
+                const blue = await makeFile('#0000ff', 'blue.png');
+                await hooks.loadFromFiles([red, redCopy, blue]);
+                document.getElementById('phashThreshold').value = '0';
+                document.getElementById('dhashThreshold').value = '0';
+                document.getElementById('recheckDuplicatesBtn').click();
+                await new Promise((resolve) => setTimeout(resolve, 100));
+                const state = hooks.getState();
+                return {
+                    batchCount: state.currentBatch.length,
+                    allSelected: state.currentBatch.every((item) => item.selected === true),
+                    groupCount: state.duplicateGroups.length,
+                    reviewHidden: document.getElementById('duplicateReview').hidden,
+                    reviewText: document.getElementById('duplicateReview').innerText
+                };
+            })()`);
+            assert.equal(result.batchCount, 2);
+            assert.equal(result.allSelected, true);
+            assert.ok(result.groupCount >= 1, JSON.stringify(result));
+            assert.equal(result.reviewHidden, false);
+            assert.match(result.reviewText, /Advisory only/i);
+            assert.match(result.reviewText, /pHash.*dHash/is);
+        });
+
         await report('history filters compose and export only redacted portable metadata', async () => {
             const result = await client.evaluate(`(async () => {
                 const hooks = window.__ImageXpertTest;

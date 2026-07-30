@@ -19,6 +19,7 @@ import {
     validateSettingsBundle
 } from './modules/settings-portability-controller.js';
 import { createRedactedHistoryExport, filterHistory } from './modules/history-controller.js';
+import { groupPerceptualDuplicates, normalizeThreshold } from './modules/duplicate-controller.js';
 
 const Core = window.ImageXpertCore;
 const I18n = window.ImageXpertI18n;
@@ -72,6 +73,7 @@ let hostedAt = null;
 let hostedExpiresAt = null;
 let importedSourceType = null;
 let currentBatch = [];
+let duplicateGroups = [];
 let lastHashes = null;
 let originalHashes = null;
 let roiOriginalSource = '';
@@ -621,6 +623,7 @@ async function loadFromFiles(fileList) {
 
     const controller = beginOperation('Preparing batch...');
     currentBatch = [];
+    duplicateGroups = [];
     try {
         for (let i = 0; i < files.length; i++) {
             if (controller.signal.aborted) throw new DOMException('Batch cancelled', 'AbortError');
@@ -657,6 +660,7 @@ async function loadVideoFrames(file) {
     } catch (error) {
         showToast(error.name === 'AbortError' ? 'Video extraction cancelled.' : error.message, '⚠️', true);
         currentBatch = [];
+        duplicateGroups = [];
     } finally {
         endOperation(controller);
     }
@@ -740,6 +744,7 @@ function extractVideoFrames(file, count, signal) {
 function renderBatch(activeIndex = 0) {
     const strip = document.getElementById('batchStrip');
     strip.replaceChildren();
+    renderDuplicateReview();
     if (currentBatch.length <= 1) return;
     currentBatch.forEach((item, idx) => {
         if (!Core.isApprovedImageSource(item.dataUrl)) return;
@@ -795,6 +800,48 @@ function renderBatch(activeIndex = 0) {
     });
 }
 
+async function analyzeBatchDuplicates() {
+    for (const item of currentBatch) {
+        if (!item.visualHashes) {
+            try {
+                item.visualHashes = await computeVisualHashes(item.dataUrl);
+            } catch {
+                item.visualHashes = null;
+            }
+        }
+    }
+    const phashThreshold = normalizeThreshold(document.getElementById('phashThreshold').value, 8);
+    const dhashThreshold = normalizeThreshold(document.getElementById('dhashThreshold').value, 6);
+    document.getElementById('phashThreshold').value = String(phashThreshold);
+    document.getElementById('dhashThreshold').value = String(dhashThreshold);
+    duplicateGroups = groupPerceptualDuplicates(currentBatch, { phashThreshold, dhashThreshold });
+    renderDuplicateReview();
+    return duplicateGroups;
+}
+
+function renderDuplicateReview() {
+    const review = document.getElementById('duplicateReview');
+    const container = document.getElementById('duplicateGroups');
+    review.hidden = currentBatch.length <= 1;
+    container.replaceChildren();
+    if (review.hidden) return;
+    if (duplicateGroups.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'duplicate-group';
+        empty.textContent = tr('duplicates.none');
+        container.append(empty);
+        return;
+    }
+    duplicateGroups.forEach((group, index) => {
+        const row = document.createElement('div');
+        row.className = 'duplicate-group';
+        const closestP = Math.min(...group.pairs.map((pair) => pair.phashDistance));
+        const closestD = Math.min(...group.pairs.map((pair) => pair.dhashDistance));
+        row.textContent = `${activeLocale === 'es' ? 'Grupo' : 'Group'} ${index + 1}: ${I18n.formatList(group.members.map((item) => item.name), activeLocale)} • pHash Δ${closestP} • dHash Δ${closestD}`;
+        container.append(row);
+    });
+}
+
 async function dedupeCurrentBatch() {
     const unique = [];
     const seen = new Set();
@@ -809,6 +856,7 @@ async function dedupeCurrentBatch() {
         unique.push(item);
     }
     currentBatch = unique;
+    await analyzeBatchDuplicates();
     if (removed) showToast(`${removed} duplicate batch item${removed === 1 ? '' : 's'} removed.`, '↺');
 }
 
@@ -963,6 +1011,7 @@ async function preprocessCurrentImage(mode) {
             ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
         }
         currentBatch = [];
+        duplicateGroups = [];
         renderBatch();
         loadImage(canvas.toDataURL('image/jpeg', 0.92), true, true);
         lastPreprocessing.push({ mode, timestamp: new Date().toISOString() });
@@ -1087,7 +1136,9 @@ function applyImportedCase(payload) {
         currentFileMetadata,
         currentProvenance,
         lastPreprocessing: [...lastPreprocessing],
-        dispatches: [...dispatches]
+        dispatches: [...dispatches],
+        currentBatch: [...currentBatch],
+        duplicateGroups: [...duplicateGroups]
     };
     try {
         clearImage();
@@ -1138,7 +1189,9 @@ function applyImportedCase(payload) {
             currentFileMetadata,
             currentProvenance,
             lastPreprocessing,
-            dispatches
+            dispatches,
+            currentBatch,
+            duplicateGroups
         } = snapshot);
         if (lastHashes) renderHashes(lastHashes);
         else document.getElementById('hashGrid').replaceChildren();
@@ -1180,6 +1233,7 @@ function clearImage() {
     hostedExpiresAt = null;
     importedSourceType = null;
     currentBatch = [];
+    duplicateGroups = [];
     lastHashes = null;
     originalHashes = null;
     roiOriginalSource = '';
@@ -1771,6 +1825,14 @@ document.getElementById('openQueuedBtn').addEventListener('click', () => {
 });
 cancelOperationBtn.addEventListener('click', () => activeOperation?.abort('user'));
 document.getElementById('privacyModeBtn').addEventListener('click', () => setExternalUploadEnabled(settings.noUpload));
+document.getElementById('recheckDuplicatesBtn').addEventListener('click', async (event) => {
+    event.currentTarget.disabled = true;
+    try {
+        await analyzeBatchDuplicates();
+    } finally {
+        event.currentTarget.disabled = false;
+    }
+});
 
 // Panels
 document.getElementById('historyBtn').addEventListener('click', () => openPanel('panel'));
@@ -2018,6 +2080,7 @@ if (['127.0.0.1', 'localhost'].includes(location.hostname)) {
         value: Object.freeze({
             loadFromUrl,
             loadFromFile,
+            loadFromFiles,
             performSearch,
             performBatchSearch,
             exportCaseFile,
@@ -2049,6 +2112,7 @@ if (['127.0.0.1', 'localhost'].includes(location.hostname)) {
                 source: hostedUrl || currentImageUrl || '',
                 sourceType: importedSourceType || (currentImageData ? 'local' : 'remote'),
                 hashes: structuredClone(lastHashes),
+                duplicateGroups: structuredClone(duplicateGroups),
                 currentBatch: currentBatch.map(({ dataUrl, ...item }) => ({ ...item, hasData: Boolean(dataUrl) }))
             })
         })

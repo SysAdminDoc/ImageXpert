@@ -626,6 +626,20 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.duplicate-review {
+    margin-top: 12px;
+    padding: 12px;
+    color: var(--text-secondary);
+    background: color-mix(in srgb, var(--warning) 8%, var(--surface-raised));
+    border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border));
+    border-radius: 10px;
+}
+.duplicate-review-header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.duplicate-review-header strong { margin-right: auto; color: var(--text-primary); }
+.duplicate-review-header label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+.duplicate-review-header input { width: 52px; padding: 5px; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
+.duplicate-review p { margin: 8px 0; font-size: 12px; }
+.duplicate-group { padding: 6px 0; border-top: 1px solid var(--border); font-size: 12px; }
 
 .url-card {
     padding: 16px 18px 17px;

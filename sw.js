@@ -12,6 +12,7 @@ const OFFLINE_ASSETS = Object.freeze([
   './modules/storage-case-controller.js',
   './modules/settings-portability-controller.js',
   './modules/history-controller.js',
+  './modules/duplicate-controller.js',
   './modules/upload-policy-controller.js',
   './modules/engine-controller.mjs',
   './modules/service-worker-controller.js',
