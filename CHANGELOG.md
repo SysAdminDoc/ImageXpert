@@ -65,3 +65,26 @@ All notable changes to ImageXpert will be documented in this file.
 
 - Added initial static reverse image search hub.
 - Added userscript update and download URLs.
+
+## Roadmap archive — 2026-08-10 — ROADMAP.md
+
+<details>
+<summary>Original roadmap snapshot</summary>
+
+```markdown
+# ImageXpert Roadmap
+
+Core roadmap baseline was empty before this research pass. True blockers are tracked in `Roadmap_Blocked.md`.
+
+## Research-Driven Additions
+
+### P0 — Now
+
+### P1 — Next
+
+### P2 — Later
+
+### P3 — Under Consideration
+```
+
+</details>
